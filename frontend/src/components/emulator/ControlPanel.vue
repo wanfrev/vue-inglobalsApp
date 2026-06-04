@@ -23,32 +23,34 @@ function simulate() {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-end gap-3 border-y border-slate-800 px-4 py-3">
-    <div class="flex flex-col gap-1">
-      <label class="text-[11px] uppercase tracking-wider text-slate-500">Entidad</label>
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Entidad</label>
       <select
         :value="entityType"
         @change="onEntityChange"
-        class="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-navy-500"
+        class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-navy-500"
       >
         <option value="publica">Pública</option>
         <option value="privada">Privada</option>
         <option value="mixta">Mixta</option>
       </select>
     </div>
-    <div class="flex flex-col gap-1">
-      <label class="text-[11px] uppercase tracking-wider text-slate-500">Marco Normativo</label>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Marco Normativo</label>
       <select
         multiple
         @change="onLawChange"
-        class="h-20 rounded border border-slate-700 bg-slate-800 px-3 py-1 text-sm text-slate-200 outline-none focus:border-navy-500"
+        class="h-24 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 outline-none focus:border-navy-500"
       >
         <option v-for="law in lawOptions" :key="law" :value="law">{{ law }}</option>
       </select>
     </div>
+
     <button
       @click="simulate"
-      class="rounded bg-navy-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-500 active:bg-navy-700"
+      class="w-full rounded-lg bg-navy-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-500 active:bg-navy-700"
     >
       Simular
     </button>

@@ -4,7 +4,7 @@ import DADMonitor from './DADMonitor.vue'
 </script>
 
 <template>
-  <div class="grid grid-cols-5 gap-2 px-4 py-3">
+  <div class="flex flex-col gap-2">
     <DADMonitor
       v-for="(v, key) in dadVariables"
       :key="key"
