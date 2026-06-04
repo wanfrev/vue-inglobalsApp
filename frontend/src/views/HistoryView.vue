@@ -7,8 +7,30 @@ import ReportCard from '../components/history/ReportCard.vue'
 const selected = ref(null)
 
 const sampleEntries = [
-  { id: 'AUD-001', date: '12/05/2025', entity: 'Pública', request: 'Auditoría de balance general', percent: 83 },
-  { id: 'AUD-002', date: '10/05/2025', entity: 'Privada', request: 'Revisión de cumplimiento tributario', percent: 55 },
+  {
+    id: 'AUD-001',
+    date: '12/05/2025',
+    entity: 'Pública',
+    request: 'Auditoría integral de estados financieros',
+    percent: 100,
+    cvFailed: false,
+  },
+  {
+    id: 'AUD-002',
+    date: '10/05/2025',
+    entity: 'Privada',
+    request: 'Revisión de cumplimiento tributario y SENIAT',
+    percent: 60,
+    cvFailed: true,
+  },
+  {
+    id: 'AUD-003',
+    date: '06/05/2025',
+    entity: 'Mixta',
+    request: 'Evaluación NIIF y certificación de trazabilidad documental',
+    percent: 80,
+    cvFailed: false,
+  },
 ]
 
 if (!simulationHistory.value.length) {
@@ -17,18 +39,24 @@ if (!simulationHistory.value.length) {
 </script>
 
 <template>
-  <div class="flex-1 space-y-4 overflow-y-auto px-4 py-6">
-    <h2 class="text-base font-semibold text-slate-100">Historial y Memoria Técnica</h2>
+  <div class="flex-1 space-y-5 overflow-y-auto bg-slate-100 px-4 py-6 lg:px-8">
+    <div class="mx-auto w-full max-w-7xl">
+      <h2 class="text-lg font-semibold text-slate-800">Historial y Memoria Tecnica</h2>
+      <p class="mt-1 text-sm text-slate-500">Evidencia de simulaciones y emision de certificados legales de auditoria.</p>
+    </div>
 
-    <HistoryTable
-      :entries="simulationHistory"
-      @select="selected = $event"
-    />
+    <section class="mx-auto w-full max-w-7xl">
+      <HistoryTable
+        :entries="simulationHistory"
+        @select="selected = $event"
+      />
+    </section>
 
-    <ReportCard
-      v-if="selected"
-      :entry="selected"
-      @close="selected = null"
-    />
+    <section v-if="selected" class="mx-auto w-full max-w-7xl">
+      <ReportCard
+        :entry="selected"
+        @close="selected = null"
+      />
+    </section>
   </div>
 </template>
