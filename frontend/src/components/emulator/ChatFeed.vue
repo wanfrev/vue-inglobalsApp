@@ -1,5 +1,14 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { simulate } from '../../services/api.js'
+import { 
+  entityType, 
+  framework, 
+  simulationStatus,
+  resetDadVariables,
+  updateDadVariablesFromResult,
+  addToHistory
+} from '../../stores/appStore.js'
 
 const emit = defineEmits(['openDrawer'])
 
@@ -7,17 +16,87 @@ const messages = ref([
   { role: 'system', text: 'Bienvenido al Simulador DAD. Selecciona la entidad y marco normativo, luego escribe tu consulta.' }
 ])
 const input = ref('')
+const isProcessing = ref(false)
 
-function send() {
+async function send() {
   const text = input.value.trim()
-  if (!text) return
+  if (!text || isProcessing.value) return
+  
   messages.value.push({ role: 'user', text })
   input.value = ''
-  simulateResponse(text)
+  isProcessing.value = true
+  simulationStatus.value = 'processing'
+  resetDadVariables()
+  
+  try {
+    const result = await simulate({
+      prompt: text,
+      entity_type: entityType.value,
+      framework: framework.value
+    })
+    
+    updateDadVariablesFromResult(result)
+    
+    const responseText = formatResponse(result)
+    messages.value.push({ role: 'dad', text: responseText })
+    
+    if (!result.is_valid) {
+      const failedCriteria = Object.entries(result.criteria)
+        .filter(([_, v]) => v.status === 'failed')
+        .map(([k]) => k)
+      
+      if (failedCriteria.length > 0) {
+        messages.value.push({
+          role: 'alert',
+          text: result.corrective_action || 'Se detectaron incumplimientos. Revisa los criterios marcados.',
+          failedVar: failedCriteria.join(', ')
+        })
+      }
+    }
+    
+    addToHistory({
+      expediente_id: result.expediente_id,
+      created_at: result.created_at,
+      entity_type: entityType.value,
+      framework: framework.value,
+      prompt: text,
+      is_valid: result.is_valid,
+      compliance_score: result.compliance_score
+    })
+    
+  } catch (error) {
+    messages.value.push({
+      role: 'alert',
+      text: `Error al procesar la solicitud: ${error.message}`
+    })
+  } finally {
+    isProcessing.value = false
+    simulationStatus.value = 'idle'
+  }
 }
 
-function simulateResponse(prompt) {
-  messages.value.push({ role: 'dad', text: `Analizando solicitud: "${prompt}"\n\n**Resultado preliminar:**\n- Cs: Verificación de costos conforme a NIA 230 — OK\n- Cv: Contexto Venezolano — requiere revisión de Gaceta Oficial\n- CS: Cumplimiento sostenible — pendiente\n- GT: Gestión tributaria — OK\n- NI: Normativa internacional — OK` })
+function formatResponse(result) {
+  const statusIcon = (s) => s === 'passed' ? '✓' : '✗'
+  const statusText = (s) => s === 'passed' ? 'OK' : 'FALLÓ'
+  
+  let text = `**${result.summary}**\n\n`
+  text += `**Expediente:** ${result.expediente_id}\n`
+  text += `**Score de Cumplimiento:** ${result.compliance_score}%\n\n`
+  text += `**Criterios DAD:**\n`
+  
+  for (const [key, criterion] of Object.entries(result.criteria)) {
+    text += `- ${key}: ${statusIcon(criterion.status)} ${statusText(criterion.status)}\n`
+    text += `  ${criterion.detail}\n`
+    if (criterion.article_ref) {
+      text += `  _Ref: ${criterion.article_ref}_\n`
+    }
+  }
+  
+  if (result.corrective_action) {
+    text += `\n**Acción Correctiva:** ${result.corrective_action}`
+  }
+  
+  return text
 }
 
 function reboundExample() {
@@ -33,6 +112,12 @@ function reboundExample() {
     })
   }, 600)
 }
+
+watch(simulationStatus, (newStatus) => {
+  if (newStatus === 'processing') {
+    isProcessing.value = true
+  }
+})
 </script>
 
 <template>
@@ -88,9 +173,8 @@ function reboundExample() {
         <div
           v-else-if="msg.role === 'dad'"
           class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 whitespace-pre-line"
-        >
-          {{ msg.text }}
-        </div>
+          v-html="msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>')"
+        ></div>
 
         <!-- Rebound alert -->
         <div
@@ -109,6 +193,21 @@ function reboundExample() {
           {{ msg.text }}
         </div>
       </div>
+      
+      <!-- Processing indicator -->
+      <div
+        v-if="isProcessing"
+        class="mr-auto max-w-[88%]"
+      >
+        <div class="inline-flex items-center gap-2 rounded-2xl rounded-tl-none border border-slate-200 bg-white px-4 py-2.5">
+          <div class="flex gap-1">
+            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></span>
+            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></span>
+            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400"></span>
+          </div>
+          <span class="text-xs text-slate-500">Analizando con motor DAD...</span>
+        </div>
+      </div>
     </div>
 
     <!-- Floating input area -->
@@ -118,12 +217,14 @@ function reboundExample() {
           v-model="input"
           rows="1"
           placeholder="Escribe tu consulta de auditoría..."
-          class="min-h-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+          :disabled="isProcessing"
+          class="min-h-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-50"
           @keydown.enter.prevent="send"
         ></textarea>
         <button
           @click="send"
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-colors hover:bg-slate-800 active:bg-slate-700"
+          :disabled="isProcessing"
+          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-colors hover:bg-slate-800 active:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
             <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
