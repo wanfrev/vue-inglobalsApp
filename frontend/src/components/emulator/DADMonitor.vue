@@ -10,10 +10,10 @@ defineProps({
   <div
     class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-300"
     :class="{
-      'border-slate-700 bg-slate-800 text-slate-400': status === 'idle',
-      'border-amber-500 bg-amber-900/30 text-amber-400 animate-pulse': status === 'processing',
-      'border-emerald bg-emerald/10 text-emerald': status === 'success',
-      'border-crimson bg-crimson/10 text-crimson': status === 'error'
+      'border-slate-200 bg-white text-slate-500': status === 'idle',
+      'border-oro bg-oro/5 text-oro animate-pulse': status === 'processing',
+      'border-verdeEsm bg-verdeEsm/10 text-verdeEsm': status === 'success',
+      'border-violetaIA bg-violetaIA/10 text-violetaIA': status === 'error'
     }"
   >
     <span class="w-8 text-center text-lg font-bold leading-none">{{ label }}</span>
@@ -26,11 +26,11 @@ defineProps({
     </span>
     <span
       v-else-if="status === 'success'"
-      class="ml-auto"
+      class="ml-auto font-bold"
     >✓</span>
     <span
       v-else-if="status === 'error'"
-      class="ml-auto"
+      class="ml-auto font-bold"
     >✗</span>
   </div>
 </template>

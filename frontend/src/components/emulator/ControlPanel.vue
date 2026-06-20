@@ -24,7 +24,7 @@ function simulate() {
       <select
         :value="entityType"
         @change="onEntityChange"
-        class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-navy-500"
+        class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-azulCorp outline-none focus:border-oro transition-colors"
       >
         <option value="publica">Pública</option>
         <option value="privada">Privada</option>
@@ -37,7 +37,7 @@ function simulate() {
       <select
         :value="framework"
         @change="onFrameworkChange"
-        class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-navy-500"
+        class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-azulCorp outline-none focus:border-oro transition-colors"
       >
         <option v-for="law in lawOptions" :key="law" :value="law">{{ law }}</option>
       </select>
@@ -46,7 +46,7 @@ function simulate() {
     <button
       @click="simulate"
       :disabled="simulationStatus === 'processing'"
-      class="w-full rounded-lg bg-navy-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-500 active:bg-navy-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="w-full rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:shadow-oro/20 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
     >
       {{ simulationStatus === 'processing' ? 'Procesando...' : 'Simular' }}
     </button>

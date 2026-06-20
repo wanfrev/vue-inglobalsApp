@@ -37,10 +37,10 @@ function complianceLabel(entry) {
         <tr
           v-for="(entry, i) in props.entries"
           :key="i"
-          class="cursor-pointer odd:bg-white even:bg-slate-50/50 transition-colors hover:bg-slate-100/70"
+          class="cursor-pointer odd:bg-white even:bg-slate-50/50 transition-colors hover:bg-oro/5"
           @click="$emit('select', entry)"
         >
-          <td class="p-4 font-medium text-slate-800">{{ entry.id }}</td>
+          <td class="p-4 font-medium text-azulCorp">{{ entry.id }}</td>
           <td class="p-4">{{ entry.date }}</td>
           <td class="p-4">{{ entry.entity }}</td>
           <td class="max-w-85 truncate p-4 text-slate-600">{{ entry.request }}</td>
@@ -48,7 +48,7 @@ function complianceLabel(entry) {
             <div class="flex items-center gap-3">
               <span
                 class="inline-flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold"
-                :class="hasContextAlert(entry) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'"
+                :class="hasContextAlert(entry) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
               >
                 {{ getPercent(entry) }}%
               </span>
@@ -56,13 +56,13 @@ function complianceLabel(entry) {
                 <div class="mb-1 h-1.5 w-full rounded-full bg-slate-200">
                 <div
                   class="h-1.5 rounded-full"
-                  :class="hasContextAlert(entry) ? 'bg-amber-500' : 'bg-emerald-500'"
+                  :class="hasContextAlert(entry) ? 'bg-oro' : 'bg-verdeEsm'"
                   :style="{ width: getPercent(entry) + '%' }"
                 ></div>
               </div>
                 <p
                   class="truncate text-xs font-medium"
-                  :class="hasContextAlert(entry) ? 'text-amber-700' : 'text-emerald-700'"
+                  :class="hasContextAlert(entry) ? 'text-oroOscuro' : 'text-verdeEsm'"
                 >
                   {{ complianceLabel(entry) }}
                 </p>
@@ -72,7 +72,7 @@ function complianceLabel(entry) {
           <td class="p-4">
             <div class="flex items-center gap-2">
               <button
-                class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-azulCorp"
                 title="Ver detalle"
                 @click.stop="$emit('select', entry)"
               >
@@ -83,7 +83,7 @@ function complianceLabel(entry) {
               </button>
 
               <button
-                class="rounded-lg p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
                 title="Descargar PDF"
                 @click.stop
               >
@@ -105,13 +105,13 @@ function complianceLabel(entry) {
       <article
         v-for="(entry, i) in props.entries"
         :key="`mobile-${i}`"
-        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm cursor-pointer transition-colors hover:border-oro/30"
         @click="$emit('select', entry)"
       >
         <div class="mb-3 flex items-start justify-between gap-3">
           <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ entry.id }}</p>
-            <h3 class="mt-0.5 text-sm font-semibold text-slate-800">{{ entry.entity }}</h3>
+            <h3 class="mt-0.5 text-sm font-semibold text-azulCorp">{{ entry.entity }}</h3>
           </div>
           <span class="text-xs text-slate-500">{{ entry.date }}</span>
         </div>
@@ -121,14 +121,14 @@ function complianceLabel(entry) {
         <div class="mb-3 flex items-center gap-3">
           <span
             class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-            :class="hasContextAlert(entry) ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'"
+            :class="hasContextAlert(entry) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
           >
             {{ complianceLabel(entry) }}
           </span>
           <div class="h-1.5 flex-1 rounded-full bg-slate-200">
             <div
               class="h-1.5 rounded-full"
-              :class="hasContextAlert(entry) ? 'bg-amber-500' : 'bg-emerald-500'"
+              :class="hasContextAlert(entry) ? 'bg-oro' : 'bg-verdeEsm'"
               :style="{ width: getPercent(entry) + '%' }"
             ></div>
           </div>
@@ -136,7 +136,7 @@ function complianceLabel(entry) {
 
         <div class="flex items-center justify-end gap-2">
           <button
-            class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-azulCorp"
             title="Ver detalle"
             @click.stop="$emit('select', entry)"
           >
@@ -147,7 +147,7 @@ function complianceLabel(entry) {
           </button>
 
           <button
-            class="rounded-lg p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+            class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
             title="Descargar PDF"
             @click.stop
           >

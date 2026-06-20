@@ -121,7 +121,7 @@ watch(simulationStatus, (newStatus) => {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col bg-white">
+  <div class="flex flex-1 flex-col bg-white/80 backdrop-blur-sm">
     <!-- Mobile top bar with drawer toggle -->
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-2 lg:hidden">
       <button
@@ -135,7 +135,7 @@ watch(simulationStatus, (newStatus) => {
       </button>
       <button
         @click="reboundExample"
-        class="text-xs text-rose-600 hover:text-rose-700"
+        class="text-xs text-violetaIA hover:text-violetaIA/80 font-medium"
         title="Mostrar ejemplo de rebote"
       >
         Probar alerta
@@ -156,7 +156,7 @@ watch(simulationStatus, (newStatus) => {
         <!-- User bubble -->
         <div
           v-if="msg.role === 'user'"
-          class="bg-slate-900 text-white rounded-2xl rounded-tr-none px-4 py-2.5"
+          class="bg-azulCorp text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm"
         >
           {{ msg.text }}
         </div>
@@ -172,20 +172,20 @@ watch(simulationStatus, (newStatus) => {
         <!-- AI normal response -->
         <div
           v-else-if="msg.role === 'dad'"
-          class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 whitespace-pre-line"
+          class="bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 whitespace-pre-line shadow-sm"
           v-html="msg.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/_(.*?)_/g, '<em>$1</em>')"
         ></div>
 
         <!-- Rebound alert -->
         <div
           v-else-if="msg.role === 'alert'"
-          class="bg-rose-50 border-l-4 border-l-rose-500 text-rose-950 rounded-r-xl px-4 py-3 whitespace-pre-line"
+          class="bg-violetaIA/5 border-l-4 border-l-violetaIA text-violetaIA rounded-r-xl px-4 py-3 whitespace-pre-line"
         >
           <div class="mb-1 flex items-center gap-2">
             <span class="text-sm font-bold">⚠ Alerta de Rebote</span>
             <span
               v-if="msg.failedVar"
-              class="rounded bg-rose-200 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-rose-800"
+              class="rounded bg-violetaIA/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-violetaIA"
             >
               {{ msg.failedVar }}
             </span>
@@ -199,11 +199,11 @@ watch(simulationStatus, (newStatus) => {
         v-if="isProcessing"
         class="mr-auto max-w-[88%]"
       >
-        <div class="inline-flex items-center gap-2 rounded-2xl rounded-tl-none border border-slate-200 bg-white px-4 py-2.5">
+        <div class="inline-flex items-center gap-2 rounded-2xl rounded-tl-none border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
           <div class="flex gap-1">
-            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></span>
-            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></span>
-            <span class="h-2 w-2 animate-bounce rounded-full bg-slate-400"></span>
+            <span class="h-2 w-2 animate-bounce rounded-full bg-oro [animation-delay:-0.3s]"></span>
+            <span class="h-2 w-2 animate-bounce rounded-full bg-oro [animation-delay:-0.15s]"></span>
+            <span class="h-2 w-2 animate-bounce rounded-full bg-oro"></span>
           </div>
           <span class="text-xs text-slate-500">Analizando con motor DAD...</span>
         </div>
@@ -211,20 +211,20 @@ watch(simulationStatus, (newStatus) => {
     </div>
 
     <!-- Floating input area -->
-    <div class="sticky bottom-0 border-t border-slate-200 bg-white px-4 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
-      <div class="flex items-end gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 shadow-sm">
+    <div class="sticky bottom-0 border-t border-slate-200 bg-white/90 backdrop-blur-md px-4 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]">
+      <div class="flex items-end gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 shadow-sm focus-within:border-oro transition-colors">
         <textarea
           v-model="input"
           rows="1"
           placeholder="Escribe tu consulta de auditoría..."
           :disabled="isProcessing"
-          class="min-h-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-50"
+          class="min-h-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-azulCorp outline-none placeholder:text-slate-400 disabled:opacity-50"
           @keydown.enter.prevent="send"
         ></textarea>
         <button
           @click="send"
           :disabled="isProcessing"
-          class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white transition-colors hover:bg-slate-800 active:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] text-white shadow-md hover:shadow-lg hover:shadow-oro/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
             <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />

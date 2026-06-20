@@ -27,7 +27,7 @@ function openUploader() {
 </script>
 
 <template>
-  <div class="flex-1 space-y-6 overflow-y-auto bg-slate-100 px-4 py-6 lg:px-8">
+  <div class="flex-1 space-y-6 overflow-y-auto bg-white/50 backdrop-blur-sm px-4 py-6 lg:px-8">
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="relative w-full max-w-xl">
         <svg
@@ -47,13 +47,13 @@ function openUploader() {
           v-model="searchQuery"
           type="text"
           placeholder="Buscar ley, gaceta o normativa..."
-          class="w-full max-w-xl rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500"
+          class="w-full max-w-xl rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-azulCorp outline-none transition-colors placeholder:text-slate-400 focus:border-oro"
         />
       </div>
 
       <button
         @click="openUploader"
-        class="shrink-0 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+        class="shrink-0 rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:shadow-oro/20 hover:-translate-y-0.5 transition-all"
       >
         Cargar Ley (PDF)
       </button>
@@ -61,7 +61,7 @@ function openUploader() {
 
     <section class="mx-auto w-full max-w-7xl">
       <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-slate-800">Repositorio Normativo</h2>
+        <h2 class="text-lg font-semibold text-azulCorp">Repositorio Normativo</h2>
         <p class="text-sm text-slate-500">{{ filteredDocuments.length }} documentos</p>
       </div>
 
@@ -77,7 +77,7 @@ function openUploader() {
       </div>
 
       <p v-if="!filteredDocuments.length" class="mt-4 text-sm text-slate-500">
-        Sin documentos cargados aun.
+        Sin documentos cargados aún.
       </p>
     </section>
 

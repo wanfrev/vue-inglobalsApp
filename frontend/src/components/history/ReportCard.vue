@@ -10,14 +10,14 @@ const props = defineProps({
 const complianceTone = computed(() => {
   const percent = Number(props.entry?.percent || 0)
   const isAlert = Boolean(props.entry?.cvFailed) || props.entry?.cvStatus === 'failed' || percent < 100
-  return isAlert ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+  return isAlert ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'
 })
 </script>
 
 <template>
   <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
     <div class="mb-4 flex items-center justify-between">
-      <h3 class="text-sm font-semibold text-slate-800">Expediente #{{ entry?.id }}</h3>
+      <h3 class="text-sm font-semibold text-azulCorp">Expediente #{{ entry?.id }}</h3>
       <button @click="$emit('close')" class="text-slate-400 hover:text-slate-600">✕</button>
     </div>
 
@@ -35,7 +35,7 @@ const complianceTone = computed(() => {
     </div>
 
     <button
-      class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+      class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-4 py-2 text-sm font-bold text-white shadow-md hover:shadow-lg hover:shadow-oro/20 hover:-translate-y-0.5 transition-all"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />

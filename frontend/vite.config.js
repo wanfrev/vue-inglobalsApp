@@ -9,24 +9,24 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'logo.png'],
       manifest: {
-        name: 'DAD — Dynamical Audit Dashboard',
-        short_name: 'DAD',
-        description: 'Tablero de comandos de auditoría legal con simulación DAD',
+        name: 'Inglobals — DAD Dashboard',
+        short_name: 'Inglobals',
+        description: 'Auditoría inteligente para un futuro sostenible. Tablero de comandos DAD.',
         theme_color: '#0f172a',
-        background_color: '#020617',
+        background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
         lang: 'es',
         icons: [
           {
-            src: 'icon-192.png',
+            src: 'logo.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: 'icon-512.png',
+            src: 'logo.png',
             sizes: '512x512',
             type: 'image/png',
           },

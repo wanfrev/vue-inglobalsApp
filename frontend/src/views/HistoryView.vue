@@ -39,10 +39,10 @@ if (!simulationHistory.value.length) {
 </script>
 
 <template>
-  <div class="flex-1 space-y-5 overflow-y-auto bg-slate-100 px-4 py-6 lg:px-8">
+  <div class="flex-1 space-y-5 overflow-y-auto bg-white/50 backdrop-blur-sm px-4 py-6 lg:px-8">
     <div class="mx-auto w-full max-w-7xl">
-      <h2 class="text-lg font-semibold text-slate-800">Historial y Memoria Tecnica</h2>
-      <p class="mt-1 text-sm text-slate-500">Evidencia de simulaciones y emision de certificados legales de auditoria.</p>
+      <h2 class="text-lg font-semibold text-azulCorp">Historial y Memoria Técnica</h2>
+      <p class="mt-1 text-sm text-slate-500">Evidencia de simulaciones y emisión de certificados legales de auditoría.</p>
     </div>
 
     <section class="mx-auto w-full max-w-7xl">
