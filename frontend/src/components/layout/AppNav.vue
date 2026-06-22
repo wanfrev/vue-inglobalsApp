@@ -25,11 +25,18 @@ const views = [
   <aside
     class="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col bg-azulCorp border-r border-amber-200/10 lg:flex"
   >
-    <div class="flex items-center gap-2 border-b border-amber-200/10 px-6 py-5">
-      <span class="text-sm font-bold uppercase tracking-widest text-slate-100">DAD</span>
-      <span
-        class="ml-auto text-[10px] font-bold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C]"
-      >v1.0</span>
+    <div class="flex items-center gap-3 border-b border-amber-200/10 px-6 py-5">
+      <img
+        src="/logo.png"
+        alt="Inglobals logo"
+        class="h-7 w-auto"
+      />
+      <span class="text-lg font-bold text-white tracking-tight">
+        Inglobal<span
+          class="text-transparent bg-clip-text bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C]"
+          >S</span
+        >
+      </span>
     </div>
     <nav class="flex flex-col gap-1 px-3 pt-6">
       <button
