@@ -1,36 +1,76 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   label: String,
   name: String,
-  status: { type: String, default: 'idle' }
+  status: { type: String, default: 'idle' },
+  active: { type: Boolean, default: false }
+})
+
+const emit = defineEmits(['toggle'])
+
+const cardClasses = computed(() => {
+  if (!props.active) {
+    return 'border-slate-200 bg-slate-50/80 text-slate-400 opacity-70'
+  }
+  switch (props.status) {
+    case 'processing':
+      return 'border-oro bg-oro/5 text-oro animate-pulse'
+    case 'success':
+      return 'border-verdeEsm bg-verdeEsm/5 text-verdeEsm'
+    case 'error':
+      return 'border-violetaIA bg-violetaIA/5 text-violetaIA'
+    default:
+      return 'border-oro bg-white text-azulCorp shadow-sm'
+  }
+})
+
+const indicatorClass = computed(() => {
+  if (!props.active) return 'bg-slate-300'
+  switch (props.status) {
+    case 'processing': return 'bg-oro animate-pulse'
+    case 'success': return 'bg-verdeEsm'
+    case 'error': return 'bg-violetaIA'
+    default: return 'bg-oro'
+  }
 })
 </script>
 
 <template>
   <div
-    class="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-300"
-    :class="{
-      'border-slate-200 bg-white text-slate-500': status === 'idle',
-      'border-oro bg-oro/5 text-oro animate-pulse': status === 'processing',
-      'border-verdeEsm bg-verdeEsm/10 text-verdeEsm': status === 'success',
-      'border-violetaIA bg-violetaIA/10 text-violetaIA': status === 'error'
-    }"
+    @click="emit('toggle')"
+    class="flex cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3 transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
+    :class="cardClasses"
   >
-    <span class="w-8 text-center text-lg font-bold leading-none">{{ label }}</span>
-    <span class="text-xs leading-tight">{{ name }}</span>
-    <span
-      v-if="status === 'processing'"
-      class="ml-auto text-[10px] uppercase tracking-wider opacity-70"
+    <span class="w-9 text-center text-xl font-black leading-none">{{ label }}</span>
+    <span class="flex-1 text-xs leading-tight font-medium">{{ name }}</span>
+
+    <!-- Status indicator -->
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors"
+      :class="{
+        'bg-slate-200 text-slate-400': !active,
+        'bg-oro text-white': active && status === 'processing',
+        'bg-verdeEsm text-white': active && status === 'success',
+        'bg-violetaIA text-white': active && status === 'error',
+        'bg-oro/20 text-oro': active && status === 'idle',
+      }"
     >
-      verificando...
+      <template v-if="!active">
+        ○
+      </template>
+      <template v-else-if="status === 'success'">
+        ✓
+      </template>
+      <template v-else-if="status === 'error'">
+        ✗
+      </template>
+      <template v-else-if="status === 'processing'">
+        ⟳
+      </template>
+      <template v-else>
+        ●
+      </template>
     </span>
-    <span
-      v-else-if="status === 'success'"
-      class="ml-auto font-bold"
-    >✓</span>
-    <span
-      v-else-if="status === 'error'"
-      class="ml-auto font-bold"
-    >✗</span>
   </div>
 </template>

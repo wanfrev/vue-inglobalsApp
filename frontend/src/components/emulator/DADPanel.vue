@@ -1,5 +1,5 @@
 <script setup>
-import { dadVariables } from '../../stores/appStore.js'
+import { dadVariables, toggleDadVariable } from '../../stores/appStore.js'
 import DADMonitor from './DADMonitor.vue'
 </script>
 
@@ -11,6 +11,8 @@ import DADMonitor from './DADMonitor.vue'
       :label="v.label"
       :name="v.name"
       :status="v.status"
+      :active="v.active"
+      @toggle="toggleDadVariable(key)"
     />
   </div>
 </template>

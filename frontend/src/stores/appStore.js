@@ -9,12 +9,14 @@ export const activeLaws = ref([])
 export const simulationStatus = ref('idle')
 export const simulationResult = ref(null)
 
+export const promptText = ref('')
+
 export const dadVariables = reactive({
-  Cs: { label: 'Cs',  name: 'Ciencias Sociales / Juicio Profesional', status: 'idle' },
-  Cv: { label: 'Cv',  name: 'Contexto Venezolano / Sostenibilidad', status: 'idle' },
-  CS: { label: 'CS',  name: 'Capital Social / Estructuración', status: 'idle' },
-  GT: { label: 'GT',  name: 'Gestión Tecnológica / IA', status: 'idle' },
-  NI: { label: 'NI',  name: 'Normas Internacionales', status: 'idle' },
+  Cs: { label: 'Cs',  name: 'Ciencias Sociales / Juicio Profesional', status: 'idle', active: true },
+  Cv: { label: 'Cv',  name: 'Contexto Venezolano / Sostenibilidad', status: 'idle', active: true },
+  CS: { label: 'CS',  name: 'Capital Social / Estructuración', status: 'idle', active: false },
+  GT: { label: 'GT',  name: 'Gestión Tecnológica / IA', status: 'idle', active: true },
+  NI: { label: 'NI',  name: 'Normas Internacionales', status: 'idle', active: false },
 })
 
 export const simulationHistory = ref([])
@@ -46,6 +48,20 @@ export function setDadVariableStatus(key, status) {
   if (dadVariables[key]) {
     dadVariables[key].status = status
   }
+}
+
+export function toggleDadVariable(key) {
+  if (dadVariables[key]) {
+    dadVariables[key].active = !dadVariables[key].active
+  }
+}
+
+export function getActiveVariableCount() {
+  return Object.values(dadVariables).filter(v => v.active).length
+}
+
+export function canSimulate() {
+  return promptText.value.trim().length > 0 && getActiveVariableCount() > 0
 }
 
 export function updateDadVariablesFromResult(result) {
