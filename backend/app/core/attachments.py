@@ -58,17 +58,24 @@ def _extract_xlsx(content: bytes) -> str:
 def extract_text(filename: str, content: bytes) -> str:
     lowered = filename.lower()
 
-    if lowered.endswith(".pdf"):
-        return _extract_pdf(content)
+    try:
+        if lowered.endswith(".pdf"):
+            return _extract_pdf(content)
 
-    if lowered.endswith(".txt"):
-        return content.decode("utf-8", errors="ignore")
+        if lowered.endswith(".txt"):
+            return content.decode("utf-8", errors="ignore")
 
-    if lowered.endswith(".docx"):
-        return _extract_docx(content)
+        if lowered.endswith(".docx"):
+            return _extract_docx(content)
 
-    if lowered.endswith(".xlsx"):
-        return _extract_xlsx(content)
+        if lowered.endswith(".xlsx"):
+            return _extract_xlsx(content)
+    except ValueError:
+        raise
+    except Exception:
+        raise ValueError(
+            f"No se pudo leer '{filename}'. ¿Está dañado o el contenido no corresponde a su extensión?"
+        )
 
     raise ValueError(
         f"Formato no soportado para '{filename}'. Se aceptan: PDF, TXT, Word (.docx) o Excel (.xlsx)."
