@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     DEEPSEEK_TEMPERATURE: float = 0.1
     DEEPSEEK_MAX_TOKENS: int = 1000
 
+    # Precio por millón de tokens en USD. Verificar el valor vigente en
+    # https://api-docs.deepseek.com/quick_start/pricing antes de confiar en el
+    # costo estimado que se muestra al usuario — DeepSeek los ha cambiado
+    # varias veces y difieren entre cache-hit y cache-miss.
+    DEEPSEEK_PRICE_INPUT_PER_1M: float = 0.27
+    DEEPSEEK_PRICE_OUTPUT_PER_1M: float = 1.10
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     DATA_DIR: Path = BASE_DIR / "data"
     CHROMA_DIR: Path = DATA_DIR / "chroma"

@@ -25,6 +25,27 @@
 
 body {
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  margin: 0;
+  background: #f8fafc;
+  overflow-x: hidden;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgb(212 175 55 / 35%);
+  outline-offset: 2px;
+}
+
+.soft-panel {
+  border: 1px solid rgb(226 232 240 / 80%);
+  background: rgb(255 255 255 / 72%);
+  box-shadow: 12px 18px 40px rgb(15 23 42 / 6%), inset 0 1px 0 rgb(255 255 255 / 90%);
+  backdrop-filter: blur(18px);
 }
 
 h1,

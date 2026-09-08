@@ -17,33 +17,46 @@ function complianceLabel(entry) {
   const percent = getPercent(entry)
   return hasContextAlert(entry) ? `${percent}% Alerta` : '100% Aprobado'
 }
+
+function downloadEntry(entry) {
+  const payload = entry?.record || entry
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `memoria-tecnica-${entry?.id || 'expediente'}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
   <div>
-    <div class="hidden overflow-x-auto rounded-xl shadow-sm md:block">
-      <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-xl bg-white">
+    <div class="hidden overflow-x-auto rounded-2xl border border-slate-200/80 md:block">
+      <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white/80">
       <thead>
         <tr>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Expediente</th>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Fecha</th>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Entidad</th>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Solicitud</th>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Cumplimiento</th>
-          <th class="bg-slate-50 p-4 text-left text-xs font-semibold uppercase text-slate-500">Acciones</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Expediente</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Fecha</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Entidad</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Solicitud</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Cumplimiento</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-200 text-sm text-slate-700">
         <tr
           v-for="(entry, i) in props.entries"
           :key="i"
-          class="cursor-pointer odd:bg-white even:bg-slate-50/50 transition-colors hover:bg-oro/5"
+          class="cursor-pointer odd:bg-white/80 even:bg-slate-50/50 transition-colors hover:bg-oro/5"
           @click="$emit('select', entry)"
         >
           <td class="p-4 font-medium text-azulCorp">{{ entry.id }}</td>
           <td class="p-4">{{ entry.date }}</td>
           <td class="p-4">{{ entry.entity }}</td>
-          <td class="max-w-85 truncate p-4 text-slate-600">{{ entry.request }}</td>
+          <td class="max-w-[21rem] truncate p-4 text-slate-600">{{ entry.request }}</td>
           <td class="p-4">
             <div class="flex items-center gap-3">
               <span
@@ -84,8 +97,8 @@ function complianceLabel(entry) {
 
               <button
                 class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
-                title="Descargar PDF"
-                @click.stop
+                title="Descargar memoria técnica"
+                @click.stop="downloadEntry(entry)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -105,7 +118,7 @@ function complianceLabel(entry) {
       <article
         v-for="(entry, i) in props.entries"
         :key="`mobile-${i}`"
-        class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm cursor-pointer transition-colors hover:border-oro/30"
+           class="cursor-pointer rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-oro/30 hover:shadow-md"
         @click="$emit('select', entry)"
       >
         <div class="mb-3 flex items-start justify-between gap-3">
@@ -116,7 +129,7 @@ function complianceLabel(entry) {
           <span class="text-xs text-slate-500">{{ entry.date }}</span>
         </div>
 
-        <p class="mb-3 text-sm text-slate-600">{{ entry.request }}</p>
+         <p class="mb-3 break-words text-sm text-slate-600">{{ entry.request }}</p>
 
         <div class="mb-3 flex items-center gap-3">
           <span
@@ -148,8 +161,8 @@ function complianceLabel(entry) {
 
           <button
             class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
-            title="Descargar PDF"
-            @click.stop
+            title="Descargar memoria técnica"
+            @click.stop="downloadEntry(entry)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />

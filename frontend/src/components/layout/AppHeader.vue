@@ -1,54 +1,38 @@
-<script setup>
-import { computed } from 'vue'
-import { entityType, activeLaws, currentView } from '../../stores/appStore.js'
-
-const viewTitles = {
-  emulator: 'Emulador Virtual',
-  repository: 'Repositorio Normativo',
-  history: 'Historial de Expedientes',
-}
-
-const title = computed(() => viewTitles[currentView.value] || 'DAD')
-
-const entityLabel = computed(() => {
-  const labels = { publica: 'Pública', privada: 'Privada', mixta: 'Mixta' }
-  return labels[entityType.value] || '—'
-})
-</script>
-
 <template>
-  <header
-    class="flex items-center justify-between border-b border-amber-200/20 bg-azulCorp/95 backdrop-blur-md px-4 py-3"
-  >
-    <div class="flex items-center gap-3">
-      <a href="https://inglobals.com" target="_blank" class="flex items-center gap-3 group">
+  <header class="relative overflow-hidden bg-azulCorp text-white">
+    <div class="absolute -right-24 -top-32 h-72 w-72 rounded-full bg-violetaIA/10 blur-3xl"></div>
+    <div class="relative mx-auto flex w-full max-w-[1440px] items-center justify-between px-4 py-3 sm:px-6 sm:py-5 lg:px-10">
+      <div class="flex min-w-0 items-center gap-3">
+        <a href="https://inglobals.com" target="_blank" rel="noreferrer" class="group flex items-center gap-3">
         <img
           src="/logo.png"
           alt="Inglobals logo"
-          class="h-7 w-auto group-hover:scale-105 transition-transform"
+          class="h-8 w-auto transition-transform group-hover:scale-105"
         />
-        <span class="text-lg font-bold text-white tracking-tight">
+        <span class="text-lg font-bold tracking-tight text-white">
           Inglobal<span
             class="text-transparent bg-clip-text bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C]"
             >S</span
           >
         </span>
-      </a>
-      <span
-        class="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:inline border-l border-slate-700 pl-3"
-      >
-        {{ title }}
-      </span>
-    </div>
+        </a>
+      </div>
 
-    <div class="flex items-center gap-3 text-xs text-slate-400">
-      <span class="hidden sm:inline">{{ entityLabel }}</span>
-      <span
-        v-if="activeLaws.length"
-        class="hidden rounded-full bg-oro/20 px-2.5 py-0.5 text-[11px] text-oro md:inline font-medium"
-      >
-        {{ activeLaws.join(', ') }}
-      </span>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a
+          href="https://inglobals.com/"
+          target="_blank"
+          rel="noreferrer"
+          class="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-oro/40 hover:text-oro"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+          inglobals.com
+        </a>
+      </div>
     </div>
   </header>
 </template>
