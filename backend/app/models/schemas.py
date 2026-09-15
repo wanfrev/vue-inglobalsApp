@@ -28,17 +28,18 @@ class SourceUsed(BaseModel):
 
 
 class StructuringResult(BaseModel):
-    """Salida del Prompt 1 (organizador): la pregunta reformulada y anclada
-    en las fuentes legales recuperadas por RAG, más el tipo de
-    entidad/marco normativo que infirió por su cuenta (el usuario nunca
-    los elige), y lo que falte por aclarar."""
+    """Salida del Prompt 1 (organizador): la pregunta reformulada con rigor
+    metodológico (a partir de los fragmentos epistemológicos recuperados,
+    categoría "metodologica"), más el tipo de entidad/marco normativo
+    hipotético que infirió por su cuenta (el usuario nunca los elige), y lo
+    que falte por aclarar. Todavía no toca el corpus legal — las fuentes
+    normativas reales (`sources_used`) las recupera el Prompt 2."""
 
     in_scope: bool = True
     out_of_scope_reason: str = ""
     structured_prompt: str = ""
     entity_type: Literal["publica", "privada", "mixta"] = "privada"
     framework: str = ""
-    sources_used: list[SourceUsed] = []
     missing_info: list[str] = []
 
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from PyPDF2 import PdfReader
+from docx import Document as DocxDocument
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
@@ -26,6 +27,26 @@ def load_pdf_text(file_path: Path) -> str:
     return "\n\n".join(pages)
 
 
+def load_docx_text(file_path: Path) -> str:
+    doc = DocxDocument(str(file_path))
+    paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if cell.text.strip():
+                    paragraphs.append(cell.text)
+    return "\n\n".join(paragraphs)
+
+
+def load_document_text(file_path: Path) -> str:
+    suffix = file_path.suffix.lower()
+    if suffix == ".pdf":
+        return load_pdf_text(file_path)
+    if suffix == ".docx":
+        return load_docx_text(file_path)
+    raise ValueError(f"Tipo de archivo no soportado para indexar: '{file_path.suffix}'")
+
+
 def chunk_text(
     text: str, chunk_size: int = 1000, overlap: int = 200
 ) -> list[str]:
@@ -44,7 +65,7 @@ def index_document(
     category: str,
     date: str | None = None,
 ) -> dict:
-    text = load_pdf_text(file_path)
+    text = load_document_text(file_path)
     if not text.strip():
         raise ValueError(f"El PDF '{file_path.name}' no contiene texto extraíble")
 
@@ -95,6 +116,7 @@ def search_legal_context(
     query: str,
     top_k: int = 5,
     filter_category: str | None = None,
+    exclude_categories: list[str] | None = None,
 ) -> list[dict]:
     model = get_embedding_model()
     query_embedding = model.encode(
@@ -107,9 +129,13 @@ def search_legal_context(
     if index.ntotal == 0:
         return []
 
-    if filter_category:
+    if filter_category or exclude_categories:
+        excluded = set(exclude_categories or [])
         filtered_indices = [
-            i for i, m in enumerate(metadata) if m.get("category") == filter_category
+            i
+            for i, m in enumerate(metadata)
+            if (not filter_category or m.get("category") == filter_category)
+            and m.get("category") not in excluded
         ]
         if not filtered_indices:
             return []

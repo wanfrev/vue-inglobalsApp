@@ -14,18 +14,18 @@ from app.models.schemas import DocumentUploadResponse
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 
-VALID_CATEGORIES = {"venezolana", "internacional", "sostenibilidad"}
+VALID_CATEGORIES = {"venezolana", "internacional", "sostenibilidad", "metodologica"}
 
 
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
     title: str = Form(...),
-    category: Literal["venezolana", "internacional", "sostenibilidad"] = Form(...),
+    category: Literal["venezolana", "internacional", "sostenibilidad", "metodologica"] = Form(...),
     date: str = Form(""),
 ):
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF")
+    if not file.filename or not file.filename.lower().endswith((".pdf", ".docx")):
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos PDF o Word (.docx)")
 
     if category not in VALID_CATEGORIES:
         raise HTTPException(
