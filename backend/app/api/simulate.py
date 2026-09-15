@@ -1,26 +1,25 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.config import settings
-from app.core.attachments import MAX_ATTACHMENTS_PER_REQUEST, extract_text
-from app.core.auth import get_current_user
+from app.core.session import get_current_session
 from app.core.engine import run_simulation
 from app.database import increment_free_queries
-from app.models.schemas import SimulateResponse
+from app.models.schemas import SimulateRequest, SimulateResponse
 
 router = APIRouter(prefix="/api/v1", tags=["simulate"])
 
 
 @router.post("/simulate", response_model=SimulateResponse)
 async def simulate(
-    prompt: str = Form(...),
-    files: list[UploadFile] = File(default=[]),
-    user: dict = Depends(get_current_user),
+    payload: SimulateRequest,
+    session: dict = Depends(get_current_session),
 ):
+    prompt = payload.prompt
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="El prompt no puede estar vacío")
 
-    is_paid = bool(user["is_paid"])
-    used = user["free_queries_used"]
+    is_paid = bool(session["is_paid"])
+    used = session["free_queries_used"]
     if not is_paid and used >= settings.FREE_QUERY_LIMIT:
         raise HTTPException(
             status_code=402,
@@ -30,25 +29,8 @@ async def simulate(
             ),
         )
 
-    if len(files) > MAX_ATTACHMENTS_PER_REQUEST:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Máximo {MAX_ATTACHMENTS_PER_REQUEST} archivos adjuntos por consulta",
-        )
-
-    attachments = []
-    for file in files:
-        if not file.filename:
-            continue
-        content = await file.read()
-        try:
-            text = extract_text(file.filename, content)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        attachments.append({"name": file.filename, "text": text})
-
     try:
-        result = run_simulation(user_id=user["id"], prompt=prompt, attachments=attachments)
+        result = run_simulation(session_token=session["token"], prompt=prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en simulación: {str(e)}")
 
@@ -61,7 +43,7 @@ async def simulate(
         return result
 
     if not is_paid:
-        increment_free_queries(user["id"])
+        increment_free_queries(session["token"])
         used += 1
 
     result["free_queries_used"] = used

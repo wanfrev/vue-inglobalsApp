@@ -3,9 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.history import router as history_router
+from app.api.session import router as session_router
 from app.api.simulate import router as simulate_router
 from app.config import settings
 from app.database import init_sqlite
@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 
-app.include_router(auth_router)
+app.include_router(session_router)
 app.include_router(documents_router)
 app.include_router(history_router)
 app.include_router(simulate_router)

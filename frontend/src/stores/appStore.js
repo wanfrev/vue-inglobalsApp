@@ -6,32 +6,26 @@ export const currentView = ref('emulator')
 export const simulationStatus = ref('idle')
 export const promptText = ref('')
 
-export const authToken = ref(getToken())
-export const currentUser = ref(null) // { email, free_queries_used, free_queries_remaining, is_paid }
+export const sessionToken = ref(getToken())
+export const sessionInfo = ref(null) // { free_queries_used, free_queries_remaining, is_paid }
 
 export function setView(view) {
   currentView.value = view
 }
 
-export function loginSession({ token, email, free_queries_used, free_queries_remaining, is_paid }) {
-  authToken.value = token
+export function setSession({ token, free_queries_used, free_queries_remaining, is_paid }) {
+  sessionToken.value = token
   setToken(token)
-  currentUser.value = { email, free_queries_used, free_queries_remaining, is_paid }
+  sessionInfo.value = { free_queries_used, free_queries_remaining, is_paid }
 }
 
-export function updateUserStatus({ free_queries_used, free_queries_remaining, is_paid }) {
-  if (!currentUser.value) return
-  currentUser.value = {
-    ...currentUser.value,
-    free_queries_used,
-    free_queries_remaining,
-    is_paid,
-  }
+export function updateSessionStatus({ free_queries_used, free_queries_remaining, is_paid }) {
+  if (!sessionInfo.value) return
+  sessionInfo.value = { ...sessionInfo.value, free_queries_used, free_queries_remaining, is_paid }
 }
 
-export function logoutSession() {
-  authToken.value = ''
-  currentUser.value = null
+export function clearSession() {
+  sessionToken.value = ''
+  sessionInfo.value = null
   setToken('')
-  currentView.value = 'emulator'
 }

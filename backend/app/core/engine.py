@@ -13,33 +13,25 @@ from app.models.schemas import DADResult, StructuringResult, UsageInfo
 # Prompt 1 — Organizador
 #
 # Recibe la pregunta cruda del usuario + los fragmentos legales recuperados
-# por RAG (search_legal_context) + lo que el usuario haya adjuntado a ESTA
-# consulta puntual (evidencia, no se suma a la base de leyes), y la reformula
-# de forma técnica, anclada en esas fuentes. También infiere por su cuenta el
-# tipo de entidad y el marco normativo aplicable — el usuario nunca los elige
-# manualmente, todo eso vive "detrás" del chat. No emite ningún veredicto de
-# cumplimiento todavía: solo estructura y señala qué falta para poder
-# responder bien.
+# por RAG (search_legal_context), y la reformula de forma técnica, anclada en
+# esas fuentes. También infiere por su cuenta el tipo de entidad y el marco
+# normativo aplicable — el usuario nunca los elige manualmente, todo eso vive
+# "detrás" del chat. No emite ningún veredicto de cumplimiento todavía: solo
+# estructura y señala qué falta para poder responder bien.
 # ---------------------------------------------------------------------------
 
 PROMPT_1_SYSTEM = """
 Eres el Módulo Organizador del Simulador DAD (Documento de Auditoría Digital).
 Tu única función es tomar la consulta cruda de un usuario (auditor, contador
 o responsable de cumplimiento en Venezuela) y reformularla de forma técnica y
-precisa, ANCLADA en los fragmentos legales/normativos recuperados abajo y en
-los documentos que el usuario haya adjuntado a esta consulta. No evalúas
-cumplimiento ni das un veredicto: solo organizas la pregunta.
+precisa, ANCLADA en los fragmentos legales/normativos recuperados abajo. No
+evalúas cumplimiento ni das un veredicto: solo organizas la pregunta.
 
 Fragmentos legales/normativos recuperados (RAG):
 {legal_context}
 
-Documentos adjuntados por el usuario a esta consulta (evidencia puntual, NO
-son leyes — úsalos como contexto de lo que el usuario está preguntando):
-{attached_context}
-
 El usuario NO indica tipo de entidad ni marco normativo: debes inferirlos tú
-mismo a partir de la consulta, los documentos adjuntos y el contexto legal
-recuperado.
+mismo a partir de la consulta y el contexto legal recuperado.
 
 Paso 0 — Alcance:
 Este sistema SOLO responde preguntas de auditoría, cumplimiento legal,
@@ -56,9 +48,9 @@ Instrucciones (solo si "in_scope" es true):
    o ley específica cuando el fragmento recuperado lo permita (ej. "VEN-NIF 8
    Art. X", "NIA 230 párr. Y"). No inventes artículos que no estén en los
    fragmentos ni en tu conocimiento general confiable.
-2. Infiere "entity_type": "publica", "privada" o "mixta". Si la consulta y los
-   adjuntos no dan pistas claras, usa "privada" como supuesto por defecto y
-   dilo en "missing_info".
+2. Infiere "entity_type": "publica", "privada" o "mixta". Si la consulta no
+   da pistas claras, usa "privada" como supuesto por defecto y dilo en
+   "missing_info".
 3. Infiere "framework": la norma o marco normativo más relevante para esta
    consulta específica (ej. "NIA 230", "VEN-NIF 8", "NIIF S1/S2"), no una
    lista genérica.
@@ -172,29 +164,6 @@ Utiliza tu conocimiento base sobre:
 - Principios de contabilidad generalmente aceptados en Venezuela
 """
 
-# Tope de caracteres de texto extraído por archivo adjunto que se manda al
-# modelo. No es un límite técnico sino de costo: un PDF completo puede tener
-# cientos de miles de caracteres y dispararía el gasto en tokens de una sola
-# pregunta. Ver AI_PRICE_*_PER_1M en config.py.
-MAX_CHARS_PER_ATTACHMENT = 6000
-
-
-def _format_attached_context(attachments: list[dict]) -> str:
-    if not attachments:
-        return "Ninguno."
-
-    parts = []
-    for att in attachments:
-        text = (att.get("text") or "").strip()
-        if not text:
-            parts.append(f"[Archivo: {att['name']}] (sin texto extraíble)")
-            continue
-        truncated = text[:MAX_CHARS_PER_ATTACHMENT]
-        if len(text) > MAX_CHARS_PER_ATTACHMENT:
-            truncated += "\n[... texto truncado por límite de tamaño ...]"
-        parts.append(f"[Archivo: {att['name']}]\n{truncated}")
-    return "\n\n".join(parts)
-
 
 def _format_legal_context(legal_results: list[dict]) -> str:
     if not legal_results:
@@ -274,20 +243,13 @@ def _sum_usage(a: UsageInfo, b: UsageInfo) -> UsageInfo:
     )
 
 
-def _run_structuring_prompt(
-    client: OpenAI, raw_prompt: str, attachments: list[dict]
-) -> tuple[StructuringResult, str, UsageInfo]:
-    """Prompt 1: organiza la consulta a partir del contexto legal recuperado
-    y de los archivos que el usuario adjuntó a esta pregunta puntual, e
-    infiere tipo de entidad / marco normativo (el usuario no los elige)."""
+def _run_structuring_prompt(client: OpenAI, raw_prompt: str) -> tuple[StructuringResult, str, UsageInfo]:
+    """Prompt 1: organiza la consulta a partir del contexto legal recuperado,
+    e infiere tipo de entidad / marco normativo (el usuario no los elige)."""
     legal_results = search_legal_context(raw_prompt, top_k=5)
     legal_context = _format_legal_context(legal_results)
-    attached_context = _format_attached_context(attachments)
 
-    system_prompt = PROMPT_1_SYSTEM.format(
-        legal_context=legal_context,
-        attached_context=attached_context,
-    )
+    system_prompt = PROMPT_1_SYSTEM.format(legal_context=legal_context)
 
     data, usage = _call_deepseek(client, system_prompt, raw_prompt)
     structuring = StructuringResult(**data)
@@ -327,22 +289,15 @@ def _run_validation_prompt(
     return dad_result, usage
 
 
-def run_simulation(user_id: int, prompt: str, attachments: list[dict] | None = None) -> dict:
-    """attachments: lista de {"name": str, "text": str} ya extraídos por la
-    capa API (ver app/api/simulate.py). Son evidencia de ESTA consulta
-    puntual: se usan como contexto para responderla y quedan asociados al
-    expediente en el historial, pero NO se indexan en la base de leyes
-    compartida (esa se administra aparte, vía /api/v1/documents).
-
-    Si la pregunta queda fuera del alcance legal/contable del sistema (lo
+def run_simulation(session_token: str, prompt: str) -> dict:
+    """Si la pregunta queda fuera del alcance legal/contable del sistema (lo
     decide el Prompt 1), se corta ahí: no se llama al Prompt 2, no se crea
     expediente ni se guarda en el historial, y NO cuenta contra el límite de
-    consultas gratis del usuario (eso lo decide el caller, ver
+    consultas gratis de la sesión (eso lo decide el caller, ver
     app/api/simulate.py, con el `usage` de esta única llamada como dato)."""
     client = _get_client()
-    attachments = attachments or []
 
-    structuring, legal_context, usage_1 = _run_structuring_prompt(client, prompt, attachments)
+    structuring, legal_context, usage_1 = _run_structuring_prompt(client, prompt)
 
     if not structuring.in_scope:
         return {
@@ -359,7 +314,6 @@ def run_simulation(user_id: int, prompt: str, attachments: list[dict] | None = N
     created_at = datetime.now(timezone.utc).isoformat()
 
     criteria_map = {k: dad_result.criteria.get(k) for k in ("Cs", "Cv", "CS", "GT", "NI")}
-    attached_names = [a["name"] for a in attachments]
 
     result_payload = {
         "expediente_id": expediente_id,
@@ -379,21 +333,19 @@ def run_simulation(user_id: int, prompt: str, attachments: list[dict] | None = N
         "framework": structuring.framework,
         "sources_used": [s.model_dump() for s in structuring.sources_used],
         "missing_info": structuring.missing_info,
-        "attached_files": attached_names,
         "question_well_formed": dad_result.question_well_formed,
         "question_feedback": dad_result.question_feedback,
         "usage": total_usage.model_dump(),
     }
 
     simulation_data = {
-        "user_id": user_id,
+        "session_token": session_token,
         "expediente_id": expediente_id,
         "created_at": created_at,
         "entity_type": structuring.entity_type,
         "framework": structuring.framework,
         "prompt": prompt,
         "structured_prompt": structuring.structured_prompt,
-        "attached_files": json.dumps(attached_names, ensure_ascii=False),
         "result_json": json.dumps(result_payload, ensure_ascii=False),
         "is_valid": 1 if dad_result.is_valid else 0,
         "criteria_cs": criteria_map["Cs"].status if criteria_map["Cs"] else "idle",

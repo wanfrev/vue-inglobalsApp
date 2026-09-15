@@ -49,7 +49,7 @@ services:
       - key: CORS_ORIGINS
         value: https://inglobals-frontend.onrender.com
       - key: FREE_QUERY_LIMIT
-        value: "3"
+        value: "2"
       - key: SESSION_EXPIRY_DAYS
         value: "30"
       # Al pasar a un plan con disco, descomenta también esta variable:

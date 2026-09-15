@@ -4,21 +4,34 @@ import AppNav from './components/layout/AppNav.vue'
 import AppHeader from './components/layout/AppHeader.vue'
 import EmulatorView from './views/EmulatorView.vue'
 import HistoryView from './views/HistoryView.vue'
-import AuthView from './views/AuthView.vue'
-import { getMe } from './services/api.js'
-import { authToken, currentUser, currentView, logoutSession } from './stores/appStore.js'
+import { getSessionStatus, startSession } from './services/api.js'
+import { clearSession, currentView, sessionInfo, sessionToken, setSession } from './stores/appStore.js'
 
-const isRestoringSession = ref(!!authToken.value)
+const isPreparingSession = ref(true)
+
+async function beginNewSession() {
+  const session = await startSession()
+  setSession(session)
+}
 
 onMounted(async () => {
-  if (!authToken.value) return
   try {
-    const status = await getMe()
-    currentUser.value = status
+    if (sessionToken.value) {
+      const status = await getSessionStatus()
+      sessionInfo.value = status
+    } else {
+      await beginNewSession()
+    }
   } catch {
-    logoutSession()
+    // Token guardado inválido/expirado — se pide uno nuevo, sin login de por medio.
+    clearSession()
+    try {
+      await beginNewSession()
+    } catch {
+      // El backend no respondió; se reintentará solo al recargar la página.
+    }
   } finally {
-    isRestoringSession.value = false
+    isPreparingSession.value = false
   }
 })
 </script>
@@ -33,15 +46,11 @@ onMounted(async () => {
       ></div>
     </div>
 
-    <template v-if="!authToken || !currentUser">
-      <AppHeader />
-      <main v-if="isRestoringSession" class="flex flex-1 items-center justify-center">
-        <p class="text-sm text-slate-400">Cargando...</p>
-      </main>
-      <AuthView v-else />
-    </template>
+    <AppHeader />
+    <main v-if="isPreparingSession" class="flex flex-1 items-center justify-center">
+      <p class="text-sm text-slate-400">Cargando...</p>
+    </main>
     <template v-else>
-      <AppHeader />
       <AppNav />
       <main class="mx-auto flex w-full min-h-0 max-w-[1440px] flex-1 flex-col px-4 pb-3 sm:px-6 lg:px-10">
         <EmulatorView v-if="currentView === 'emulator'" />

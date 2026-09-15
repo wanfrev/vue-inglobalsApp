@@ -29,9 +29,9 @@ class SourceUsed(BaseModel):
 
 class StructuringResult(BaseModel):
     """Salida del Prompt 1 (organizador): la pregunta reformulada y anclada
-    en las fuentes legales recuperadas por RAG y en los adjuntos de esta
-    consulta, más el tipo de entidad/marco normativo que infirió por su
-    cuenta (el usuario nunca los elige), y lo que falte por aclarar."""
+    en las fuentes legales recuperadas por RAG, más el tipo de
+    entidad/marco normativo que infirió por su cuenta (el usuario nunca
+    los elige), y lo que falte por aclarar."""
 
     in_scope: bool = True
     out_of_scope_reason: str = ""
@@ -52,6 +52,10 @@ class UsageInfo(BaseModel):
     estimated_cost_usd: float = 0.0
 
 
+class SimulateRequest(BaseModel):
+    prompt: str
+
+
 class SimulateResponse(BaseModel):
     expediente_id: str = ""
     created_at: str = ""
@@ -67,7 +71,6 @@ class SimulateResponse(BaseModel):
     framework: str = ""
     sources_used: list[SourceUsed] = []
     missing_info: list[str] = []
-    attached_files: list[str] = []
     question_well_formed: bool = True
     question_feedback: str = ""
     usage: UsageInfo = UsageInfo()
@@ -76,26 +79,16 @@ class SimulateResponse(BaseModel):
     is_paid: bool = False
 
 
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
+class SessionResponse(BaseModel):
+    """Respuesta al crear una sesión anónima nueva (sin registro/login)."""
 
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-
-
-class AuthResponse(BaseModel):
     token: str
-    email: str
     free_queries_used: int
     free_queries_remaining: int
     is_paid: bool
 
 
-class UserStatus(BaseModel):
-    email: str
+class SessionStatus(BaseModel):
     free_queries_used: int
     free_queries_remaining: int
     is_paid: bool
@@ -122,7 +115,6 @@ class SimulationRecord(BaseModel):
     framework: str
     prompt: str
     structured_prompt: str = ""
-    attached_files: list[str] = []
     is_valid: bool
     criteria_cs: str
     criteria_cv: str

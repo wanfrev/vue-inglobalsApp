@@ -49,34 +49,18 @@ export function healthCheck() {
   return request('/')
 }
 
-export function register(email, password) {
-  return request('/api/v1/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  })
+export function startSession() {
+  return request('/api/v1/session', { method: 'POST' })
 }
 
-export function login(email, password) {
-  return request('/api/v1/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  })
+export function getSessionStatus() {
+  return request('/api/v1/session/me')
 }
 
-export function getMe() {
-  return request('/api/v1/auth/me')
-}
-
-export function simulate({ prompt, files = [] }) {
-  const formData = new FormData()
-  formData.append('prompt', prompt)
-  for (const file of files) {
-    formData.append('files', file)
-  }
-
+export function simulate({ prompt }) {
   return request('/api/v1/simulate', {
     method: 'POST',
-    body: formData,
+    body: JSON.stringify({ prompt }),
   })
 }
 

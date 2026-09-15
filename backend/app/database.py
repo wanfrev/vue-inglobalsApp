@@ -22,34 +22,24 @@ def get_sqlite_connection() -> sqlite3.Connection:
 def init_sqlite() -> None:
     conn = get_sqlite_connection()
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
+        CREATE TABLE IF NOT EXISTS anon_sessions (
+            token TEXT PRIMARY KEY,
             created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
             free_queries_used INTEGER NOT NULL DEFAULT 0,
             is_paid INTEGER NOT NULL DEFAULT 0
         )
     """)
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL REFERENCES users(id),
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL
-        )
-    """)
-    conn.execute("""
         CREATE TABLE IF NOT EXISTS simulations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER REFERENCES users(id),
+            session_token TEXT REFERENCES anon_sessions(token),
             expediente_id TEXT UNIQUE NOT NULL,
             created_at TEXT NOT NULL,
             entity_type TEXT NOT NULL,
             framework TEXT NOT NULL,
             prompt TEXT NOT NULL,
             structured_prompt TEXT NOT NULL DEFAULT '',
-            attached_files TEXT NOT NULL DEFAULT '[]',
             result_json TEXT,
             is_valid INTEGER NOT NULL DEFAULT 0,
             criteria_cs TEXT NOT NULL DEFAULT 'idle',
@@ -110,96 +100,59 @@ def get_metadata() -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Usuarios y sesiones (registro rápido por correo, sin verificación de email
-# todavía — ver app/core/auth.py para el hashing y la resolución de token).
+# Sesiones anónimas — sin registro ni login. El cliente pidió quitar el login
+# por ahora: cualquiera entra directo, el navegador guarda un token de sesión
+# (ver app/core/session.py) y el límite de consultas gratis se cuenta contra
+# ESE token, no contra una identidad real. Se pierde/reinicia si el usuario
+# borra el almacenamiento local del navegador o usa modo incógnito.
 # ---------------------------------------------------------------------------
 
-def create_user(email: str, password_hash: str) -> dict:
-    conn = get_sqlite_connection()
-    created_at = datetime.now(timezone.utc).isoformat()
-    try:
-        cursor = conn.execute(
-            "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
-            (email, password_hash, created_at),
-        )
-        conn.commit()
-        user_id = cursor.lastrowid
-    finally:
-        conn.close()
-    return {
-        "id": user_id,
-        "email": email,
-        "created_at": created_at,
-        "free_queries_used": 0,
-        "is_paid": 0,
-    }
-
-
-def get_user_by_email(email: str) -> dict | None:
-    conn = get_sqlite_connection()
-    row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-    conn.close()
-    return dict(row) if row else None
-
-
-def get_user_by_id(user_id: int) -> dict | None:
-    conn = get_sqlite_connection()
-    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-    conn.close()
-    return dict(row) if row else None
-
-
-def increment_free_queries(user_id: int) -> None:
-    conn = get_sqlite_connection()
-    conn.execute(
-        "UPDATE users SET free_queries_used = free_queries_used + 1 WHERE id = ?",
-        (user_id,),
-    )
-    conn.commit()
-    conn.close()
-
-
-def set_user_paid(user_id: int, is_paid: bool = True) -> None:
-    """Marca una cuenta como paga. Hoy no hay pasarela de pago conectada —
-    esto se llama manualmente (o desde el flujo que se integre después) tras
-    confirmar el pago."""
-    conn = get_sqlite_connection()
-    conn.execute("UPDATE users SET is_paid = ? WHERE id = ?", (1 if is_paid else 0, user_id))
-    conn.commit()
-    conn.close()
-
-
-def create_session(user_id: int) -> tuple[str, str]:
+def create_anon_session() -> dict:
     token = secrets.token_urlsafe(32)
     created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(days=settings.SESSION_EXPIRY_DAYS)
     conn = get_sqlite_connection()
     conn.execute(
-        "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-        (token, user_id, created_at.isoformat(), expires_at.isoformat()),
+        "INSERT INTO anon_sessions (token, created_at, expires_at) VALUES (?, ?, ?)",
+        (token, created_at.isoformat(), expires_at.isoformat()),
     )
     conn.commit()
     conn.close()
-    return token, expires_at.isoformat()
+    return {
+        "token": token,
+        "created_at": created_at.isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "free_queries_used": 0,
+        "is_paid": 0,
+    }
 
 
-def get_user_by_token(token: str) -> dict | None:
+def get_session_by_token(token: str) -> dict | None:
     conn = get_sqlite_connection()
     row = conn.execute(
-        """
-        SELECT users.* FROM sessions
-        JOIN users ON users.id = sessions.user_id
-        WHERE sessions.token = ? AND sessions.expires_at > ?
-        """,
+        "SELECT * FROM anon_sessions WHERE token = ? AND expires_at > ?",
         (token, datetime.now(timezone.utc).isoformat()),
     ).fetchone()
     conn.close()
     return dict(row) if row else None
 
 
-def delete_session(token: str) -> None:
+def increment_free_queries(token: str) -> None:
     conn = get_sqlite_connection()
-    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.execute(
+        "UPDATE anon_sessions SET free_queries_used = free_queries_used + 1 WHERE token = ?",
+        (token,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_session_paid(token: str, is_paid: bool = True) -> None:
+    """Marca una sesión como paga. Hoy no hay pasarela de pago conectada —
+    esto se llama manualmente (o desde el flujo que se integre después) tras
+    confirmar el pago."""
+    conn = get_sqlite_connection()
+    conn.execute("UPDATE anon_sessions SET is_paid = ? WHERE token = ?", (1 if is_paid else 0, token))
     conn.commit()
     conn.close()
 
@@ -208,23 +161,15 @@ def delete_session(token: str) -> None:
 # Simulaciones
 # ---------------------------------------------------------------------------
 
-def _decode_row(row: dict) -> dict:
-    try:
-        row["attached_files"] = json.loads(row.get("attached_files") or "[]")
-    except (TypeError, ValueError):
-        row["attached_files"] = []
-    return row
-
-
 def get_simulations(
-    user_id: int,
+    session_token: str,
     entity_type: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
     conn = get_sqlite_connection()
-    query = "SELECT * FROM simulations WHERE user_id = ?"
-    params: list = [user_id]
+    query = "SELECT * FROM simulations WHERE session_token = ?"
+    params: list = [session_token]
 
     if entity_type:
         query += " AND entity_type = ?"
@@ -236,17 +181,17 @@ def get_simulations(
 
     rows = conn.execute(query, params).fetchall()
     conn.close()
-    return [_decode_row(dict(row)) for row in rows]
+    return [dict(row) for row in rows]
 
 
-def get_simulation_by_expediente(expediente_id: str, user_id: int) -> dict | None:
+def get_simulation_by_expediente(expediente_id: str, session_token: str) -> dict | None:
     conn = get_sqlite_connection()
     row = conn.execute(
-        "SELECT * FROM simulations WHERE expediente_id = ? AND user_id = ?",
-        (expediente_id, user_id),
+        "SELECT * FROM simulations WHERE expediente_id = ? AND session_token = ?",
+        (expediente_id, session_token),
     ).fetchone()
     conn.close()
-    return _decode_row(dict(row)) if row else None
+    return dict(row) if row else None
 
 
 def insert_simulation(data: dict) -> int:
@@ -254,22 +199,21 @@ def insert_simulation(data: dict) -> int:
     cursor = conn.execute(
         """
         INSERT INTO simulations (
-            user_id, expediente_id, created_at, entity_type, framework, prompt,
-            structured_prompt, attached_files, result_json, is_valid, criteria_cs, criteria_cv,
+            session_token, expediente_id, created_at, entity_type, framework, prompt,
+            structured_prompt, result_json, is_valid, criteria_cs, criteria_cv,
             criteria_cs_cap, criteria_gt, criteria_ni, compliance_score,
             corrective_action, question_well_formed, question_feedback,
             prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
-            data["user_id"],
+            data["session_token"],
             data["expediente_id"],
             data["created_at"],
             data["entity_type"],
             data["framework"],
             data["prompt"],
             data.get("structured_prompt", ""),
-            data.get("attached_files", "[]"),
             data.get("result_json", ""),
             data.get("is_valid", 0),
             data.get("criteria_cs", "idle"),

@@ -1,52 +1,30 @@
 <script setup>
 import { ref } from 'vue'
 import { simulate } from '../../services/api.js'
-import { promptText, simulationStatus, updateUserStatus } from '../../stores/appStore.js'
+import { promptText, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 
 const messages = ref([])
 const isProcessing = ref(false)
-const fileInput = ref(null)
-const attachedFiles = ref([])
 
 function canSimulate() {
   return promptText.value.trim().length > 0 && !isProcessing.value
-}
-
-function openFilePicker() {
-  fileInput.value?.click()
-}
-
-function handleFileChange(event) {
-  const picked = Array.from(event.target.files || [])
-  attachedFiles.value.push(...picked)
-  event.target.value = ''
-}
-
-function removeFile(index) {
-  attachedFiles.value.splice(index, 1)
 }
 
 async function send() {
   if (!canSimulate()) return
 
   const text = promptText.value
-  const files = [...attachedFiles.value]
 
   isProcessing.value = true
   simulationStatus.value = 'processing'
 
-  messages.value.push({
-    role: 'user',
-    text,
-    fileNames: files.map((f) => f.name),
-  })
+  messages.value.push({ role: 'user', text })
   promptText.value = ''
-  attachedFiles.value = []
 
   try {
-    const result = await simulate({ prompt: text, files })
+    const result = await simulate({ prompt: text })
 
-    updateUserStatus(result)
+    updateSessionStatus(result)
 
     if (result.in_scope === false) {
       messages.value.push({
@@ -170,13 +148,6 @@ function formatResponse(result) {
           <div class="min-w-0 flex-1 break-words">
             <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-oroOscuro">Consulta</p>
             <p class="text-sm text-azulCorp leading-relaxed">{{ msg.text }}</p>
-            <div v-if="msg.fileNames?.length" class="mt-2 flex flex-wrap gap-1">
-              <span
-                v-for="name in msg.fileNames"
-                :key="name"
-                class="rounded-md bg-oro/15 px-2 py-0.5 text-[10px] font-bold text-oroOscuro"
-              >📎 {{ name }}</span>
-            </div>
           </div>
         </div>
 
@@ -259,29 +230,7 @@ function formatResponse(result) {
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
       <div class="mx-auto w-full max-w-4xl">
-        <div v-if="attachedFiles.length" class="mb-2 flex flex-wrap gap-1.5">
-          <span
-            v-for="(file, i) in attachedFiles"
-            :key="i"
-            class="inline-flex max-w-full items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-          >
-                <span class="truncate">{{ file.name }}</span>
-            <button @click="removeFile(i)" class="text-slate-400 hover:text-slate-700">✕</button>
-          </span>
-        </div>
-
         <div class="flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/70 px-2 py-2 transition-all duration-200 hover:border-slate-300 hover:bg-white focus-within:border-oro/60 focus-within:bg-white focus-within:shadow-[0_8px_24px_rgba(15,23,42,0.08)] sm:gap-2 sm:px-4">
-          <button
-            @click="openFilePicker"
-            title="Adjuntar archivo (PDF, Word, Excel o TXT)"
-             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-oroOscuro"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
-              <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.48" />
-            </svg>
-          </button>
-          <input ref="fileInput" type="file" accept=".pdf,.txt,.docx,.xlsx" multiple class="hidden" @change="handleFileChange" />
-
           <textarea
             v-model="promptText"
             rows="1"

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { exportSimulation } from '../../services/api.js'
-import { currentUser } from '../../stores/appStore.js'
+import { sessionInfo } from '../../stores/appStore.js'
 
 defineEmits(['close'])
 
@@ -64,9 +64,6 @@ async function downloadCertificate() {
       <p><span class="text-slate-500">Fecha:</span> {{ entry?.date }}</p>
       <p class="sm:col-span-2"><span class="text-slate-500">Solicitud:</span> {{ entry?.request }}</p>
       <template v-if="record">
-        <p v-if="record.attached_files?.length" class="sm:col-span-2">
-          <span class="text-slate-500">Archivos adjuntos:</span> {{ record.attached_files.join(', ') }}
-        </p>
         <p v-if="record.corrective_action" class="sm:col-span-2"><span class="text-slate-500">Acción correctiva:</span> {{ record.corrective_action }}</p>
         <p v-if="record.question_well_formed === false" class="text-oroOscuro sm:col-span-2">
           <span class="text-slate-500">Nota:</span> {{ record.question_feedback }}
@@ -92,6 +89,6 @@ async function downloadCertificate() {
       {{ isDownloading ? 'Descargando...' : 'Descargar Certificado DAD' }}
     </button>
     <p v-if="downloadError" class="mt-2 text-xs font-medium text-oroOscuro">{{ downloadError }}</p>
-    <p v-if="!currentUser?.is_paid" class="mt-1 text-xs text-slate-400">Descargar requiere una cuenta activada.</p>
+    <p v-if="!sessionInfo?.is_paid" class="mt-1 text-xs text-slate-400">Descargar requiere una cuenta activada.</p>
   </div>
 </template>

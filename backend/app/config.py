@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS_LIST: list[str] = []
 
     # Freemium: cuántas consultas reales (no rechazadas por estar fuera de
-    # contexto) puede procesar una cuenta antes de exigir pago. Descargar la
-    # memoria técnica (/history/{id}/export) siempre requiere ser cuenta paga,
-    # sin importar cuántas consultas le queden.
-    FREE_QUERY_LIMIT: int = 3
+    # contexto) puede procesar una sesión anónima antes de exigir pago.
+    # Descargar la memoria técnica (/history/{id}/export) siempre requiere
+    # ser cuenta paga, sin importar cuántas consultas le queden.
+    FREE_QUERY_LIMIT: int = 2
     SESSION_EXPIRY_DAYS: int = 30
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
