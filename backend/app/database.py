@@ -1,5 +1,7 @@
 import json
+import secrets
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from app.config import settings
@@ -13,14 +15,34 @@ def get_sqlite_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(str(settings.SQLITE_DB))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
     return conn
 
 
 def init_sqlite() -> None:
     conn = get_sqlite_connection()
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            free_queries_used INTEGER NOT NULL DEFAULT 0,
+            is_paid INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS simulations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER REFERENCES users(id),
             expediente_id TEXT UNIQUE NOT NULL,
             created_at TEXT NOT NULL,
             entity_type TEXT NOT NULL,
@@ -87,6 +109,105 @@ def get_metadata() -> list[dict]:
     return _faiss_metadata
 
 
+# ---------------------------------------------------------------------------
+# Usuarios y sesiones (registro rápido por correo, sin verificación de email
+# todavía — ver app/core/auth.py para el hashing y la resolución de token).
+# ---------------------------------------------------------------------------
+
+def create_user(email: str, password_hash: str) -> dict:
+    conn = get_sqlite_connection()
+    created_at = datetime.now(timezone.utc).isoformat()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+            (email, password_hash, created_at),
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+    finally:
+        conn.close()
+    return {
+        "id": user_id,
+        "email": email,
+        "created_at": created_at,
+        "free_queries_used": 0,
+        "is_paid": 0,
+    }
+
+
+def get_user_by_email(email: str) -> dict | None:
+    conn = get_sqlite_connection()
+    row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    conn = get_sqlite_connection()
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def increment_free_queries(user_id: int) -> None:
+    conn = get_sqlite_connection()
+    conn.execute(
+        "UPDATE users SET free_queries_used = free_queries_used + 1 WHERE id = ?",
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_user_paid(user_id: int, is_paid: bool = True) -> None:
+    """Marca una cuenta como paga. Hoy no hay pasarela de pago conectada —
+    esto se llama manualmente (o desde el flujo que se integre después) tras
+    confirmar el pago."""
+    conn = get_sqlite_connection()
+    conn.execute("UPDATE users SET is_paid = ? WHERE id = ?", (1 if is_paid else 0, user_id))
+    conn.commit()
+    conn.close()
+
+
+def create_session(user_id: int) -> tuple[str, str]:
+    token = secrets.token_urlsafe(32)
+    created_at = datetime.now(timezone.utc)
+    expires_at = created_at + timedelta(days=settings.SESSION_EXPIRY_DAYS)
+    conn = get_sqlite_connection()
+    conn.execute(
+        "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        (token, user_id, created_at.isoformat(), expires_at.isoformat()),
+    )
+    conn.commit()
+    conn.close()
+    return token, expires_at.isoformat()
+
+
+def get_user_by_token(token: str) -> dict | None:
+    conn = get_sqlite_connection()
+    row = conn.execute(
+        """
+        SELECT users.* FROM sessions
+        JOIN users ON users.id = sessions.user_id
+        WHERE sessions.token = ? AND sessions.expires_at > ?
+        """,
+        (token, datetime.now(timezone.utc).isoformat()),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_session(token: str) -> None:
+    conn = get_sqlite_connection()
+    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Simulaciones
+# ---------------------------------------------------------------------------
+
 def _decode_row(row: dict) -> dict:
     try:
         row["attached_files"] = json.loads(row.get("attached_files") or "[]")
@@ -96,16 +217,17 @@ def _decode_row(row: dict) -> dict:
 
 
 def get_simulations(
+    user_id: int,
     entity_type: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict]:
     conn = get_sqlite_connection()
-    query = "SELECT * FROM simulations"
-    params: list = []
+    query = "SELECT * FROM simulations WHERE user_id = ?"
+    params: list = [user_id]
 
     if entity_type:
-        query += " WHERE entity_type = ?"
+        query += " AND entity_type = ?"
         params.append(entity_type)
 
     query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
@@ -117,10 +239,11 @@ def get_simulations(
     return [_decode_row(dict(row)) for row in rows]
 
 
-def get_simulation_by_expediente(expediente_id: str) -> dict | None:
+def get_simulation_by_expediente(expediente_id: str, user_id: int) -> dict | None:
     conn = get_sqlite_connection()
     row = conn.execute(
-        "SELECT * FROM simulations WHERE expediente_id = ?", (expediente_id,)
+        "SELECT * FROM simulations WHERE expediente_id = ? AND user_id = ?",
+        (expediente_id, user_id),
     ).fetchone()
     conn.close()
     return _decode_row(dict(row)) if row else None
@@ -131,14 +254,15 @@ def insert_simulation(data: dict) -> int:
     cursor = conn.execute(
         """
         INSERT INTO simulations (
-            expediente_id, created_at, entity_type, framework, prompt,
+            user_id, expediente_id, created_at, entity_type, framework, prompt,
             structured_prompt, attached_files, result_json, is_valid, criteria_cs, criteria_cv,
             criteria_cs_cap, criteria_gt, criteria_ni, compliance_score,
             corrective_action, question_well_formed, question_feedback,
             prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
+            data["user_id"],
             data["expediente_id"],
             data["created_at"],
             data["entity_type"],

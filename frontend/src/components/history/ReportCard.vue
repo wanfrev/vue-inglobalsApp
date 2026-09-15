@@ -1,5 +1,7 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { exportSimulation } from '../../services/api.js'
+import { currentUser } from '../../stores/appStore.js'
 
 defineEmits(['close'])
 
@@ -14,18 +16,28 @@ const complianceTone = computed(() => {
 })
 
 const record = computed(() => props.entry?.record || null)
+const isDownloading = ref(false)
+const downloadError = ref('')
 
-function downloadCertificate() {
-  const payload = record.value || props.entry
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `memoria-tecnica-${props.entry?.id || 'expediente'}.json`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+async function downloadCertificate() {
+  isDownloading.value = true
+  downloadError.value = ''
+  try {
+    const fullRecord = await exportSimulation(props.entry.id)
+    const blob = new Blob([JSON.stringify(fullRecord, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `memoria-tecnica-${props.entry?.id || 'expediente'}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    downloadError.value = error.message || 'No se pudo descargar'
+  } finally {
+    isDownloading.value = false
+  }
 }
 </script>
 
@@ -68,7 +80,8 @@ function downloadCertificate() {
 
     <button
       @click="downloadCertificate"
-      class="mt-4 inline-flex max-w-full items-center gap-2 rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-oro/20"
+      :disabled="isDownloading"
+      class="mt-4 inline-flex max-w-full items-center gap-2 rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-oro/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -76,7 +89,9 @@ function downloadCertificate() {
         <path d="M12 12v6" />
         <path d="m9.5 15.5 2.5 2.5 2.5-2.5" />
       </svg>
-      Descargar Certificado DAD
+      {{ isDownloading ? 'Descargando...' : 'Descargar Certificado DAD' }}
     </button>
+    <p v-if="downloadError" class="mt-2 text-xs font-medium text-oroOscuro">{{ downloadError }}</p>
+    <p v-if="!currentUser?.is_paid" class="mt-1 text-xs text-slate-400">Descargar requiere una cuenta activada.</p>
   </div>
 </template>

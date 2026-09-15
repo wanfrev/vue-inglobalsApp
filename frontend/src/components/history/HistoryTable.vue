@@ -1,9 +1,14 @@
 <script setup>
+import { ref } from 'vue'
+import { exportSimulation } from '../../services/api.js'
+
 const props = defineProps({
   entries: Array
 })
 
 defineEmits(['select'])
+
+const downloadError = ref('')
 
 function getPercent(entry) {
   return Math.max(0, Math.min(100, Number(entry?.percent || 0)))
@@ -18,22 +23,34 @@ function complianceLabel(entry) {
   return hasContextAlert(entry) ? `${percent}% Alerta` : '100% Aprobado'
 }
 
-function downloadEntry(entry) {
-  const payload = entry?.record || entry
+function triggerDownload(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `memoria-tecnica-${entry?.id || 'expediente'}.json`
+  link.download = filename
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+async function downloadEntry(entry) {
+  downloadError.value = ''
+  try {
+    const record = await exportSimulation(entry.id)
+    triggerDownload(record, `memoria-tecnica-${entry.id}.json`)
+  } catch (error) {
+    downloadError.value = error.message || 'No se pudo descargar'
+  }
+}
 </script>
 
 <template>
   <div>
+    <p v-if="downloadError" class="mb-3 rounded-xl border border-oro/40 bg-oro/5 px-3 py-2 text-xs font-medium text-oroOscuro">
+      {{ downloadError }}
+    </p>
     <div class="hidden overflow-x-auto rounded-2xl border border-slate-200/80 md:block">
       <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white/80">
       <thead>

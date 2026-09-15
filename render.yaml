@@ -1,0 +1,77 @@
+# Blueprint de Render para TODO el proyecto — frontend y backend juntos, en
+# un solo dashboard. Instrucciones completas en DEPLOY.md.
+#
+# El backend empieza en el plan gratis (para probar) SIN disco persistente —
+# los datos (cuentas, historial, índice legal) se borran cada vez que el
+# servicio se reinicia o se vuelve a desplegar. Render no permite disco
+# persistente en el plan gratis del backend, solo desde "Starter" en
+# adelante (~$7/mes). El sitio estático (frontend) SIEMPRE es gratis en
+# Render, tenga o no disco el backend.
+#
+# Cuando quieras que los datos del backend sobrevivan de verdad:
+#   1. Cambia `plan: free` por `plan: starter` en el servicio del backend.
+#   2. Descomenta el bloque `disk:` al final de ese servicio.
+#   3. Descomenta la variable DATA_DIR de ese mismo servicio.
+#   4. Vuelve a desplegar (Render migra el servicio al nuevo plan con disco).
+
+services:
+  # --- Backend: API FastAPI ---
+  - type: web
+    name: inglobals-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: AI_MODEL
+        value: gemini-3.6-flash
+      - key: AI_TEMPERATURE
+        value: "0.1"
+      - key: AI_MAX_TOKENS
+        value: "4000"
+      - key: AI_PRICE_INPUT_PER_1M
+        value: "0.75"
+      - key: AI_PRICE_OUTPUT_PER_1M
+        value: "3.75"
+      # Dominio del sitio estático de abajo. Render asigna esta URL a partir
+      # del "name" del servicio, así que en el caso normal ya es correcta.
+      # Si al desplegar Render le puso un nombre distinto (porque
+      # "inglobals-frontend" ya estaba tomado por otra cuenta), actualiza
+      # este valor con la URL real que te haya asignado.
+      - key: CORS_ORIGINS
+        value: https://inglobals-frontend.onrender.com
+      - key: FREE_QUERY_LIMIT
+        value: "3"
+      - key: SESSION_EXPIRY_DAYS
+        value: "30"
+      # Al pasar a un plan con disco, descomenta también esta variable:
+      # - key: DATA_DIR
+      #   value: /var/data
+
+    # Descomentar junto con `plan: starter` (o superior) para persistencia real:
+    # disk:
+    #   name: inglobals-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+
+  # --- Frontend: sitio estático (Vue + Vite) ---
+  - type: web
+    name: inglobals-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Igual que arriba: esta URL depende del "name" del servicio de backend.
+      # Si Render le asignó un dominio distinto, actualízalo aquí y vuelve a
+      # desplegar el frontend (Vite incrusta esta variable en el build).
+      - key: VITE_API_BASE_URL
+        value: https://inglobals-backend.onrender.com

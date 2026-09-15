@@ -4,6 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    // No publicar mapas de código fuente en producción — es una de las
+    // medidas razonables de protección de código que pidió el cliente.
+    sourcemap: false,
+  },
   plugins: [
     vue(),
     tailwindcss(),

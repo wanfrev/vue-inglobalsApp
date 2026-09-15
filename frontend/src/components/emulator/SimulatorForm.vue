@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { simulate } from '../../services/api.js'
-import { promptText, simulationStatus } from '../../stores/appStore.js'
+import { promptText, simulationStatus, updateUserStatus } from '../../stores/appStore.js'
 
 const messages = ref([])
 const isProcessing = ref(false)
@@ -46,6 +46,17 @@ async function send() {
   try {
     const result = await simulate({ prompt: text, files })
 
+    updateUserStatus(result)
+
+    if (result.in_scope === false) {
+      messages.value.push({
+        role: 'alert',
+        text: result.out_of_scope_reason || 'Esta pregunta está fuera del alcance de este sistema (auditoría, cumplimiento legal y contable en Venezuela).',
+        failedVar: 'Fuera de contexto',
+      })
+      return
+    }
+
     if (result.structured_prompt && result.structured_prompt !== text) {
       messages.value.push({
         role: 'structured',
@@ -89,10 +100,17 @@ async function send() {
       }
     }
   } catch (error) {
-    messages.value.push({
-      role: 'alert',
-      text: `Error al procesar la solicitud: ${error.message}`,
-    })
+    if (error.status === 402) {
+      messages.value.push({
+        role: 'paywall',
+        text: error.message,
+      })
+    } else {
+      messages.value.push({
+        role: 'alert',
+        text: `Error al procesar la solicitud: ${error.message}`,
+      })
+    }
   } finally {
     isProcessing.value = false
     simulationStatus.value = 'idle'
@@ -204,6 +222,15 @@ function formatResponse(result) {
             </span>
           </div>
           <p class="break-words text-sm text-slate-700 whitespace-pre-line">{{ msg.text }}</p>
+        </div>
+
+        <!-- Muro de pago: se acabaron las consultas gratis -->
+        <div
+          v-else-if="msg.role === 'paywall'"
+          class="rounded-2xl border-2 border-oro/40 bg-oro/5 p-4 text-center"
+        >
+          <p class="text-sm font-semibold text-oroOscuro">{{ msg.text }}</p>
+          <p class="mt-2 text-xs text-slate-500">Activa tu cuenta para seguir consultando y poder descargar tus memorias técnicas.</p>
         </div>
 
         <!-- Consumo de tokens / costo (Prompt 2) -->

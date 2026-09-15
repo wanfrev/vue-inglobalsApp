@@ -33,7 +33,9 @@ class StructuringResult(BaseModel):
     consulta, más el tipo de entidad/marco normativo que infirió por su
     cuenta (el usuario nunca los elige), y lo que falte por aclarar."""
 
-    structured_prompt: str
+    in_scope: bool = True
+    out_of_scope_reason: str = ""
+    structured_prompt: str = ""
     entity_type: Literal["publica", "privada", "mixta"] = "privada"
     framework: str = ""
     sources_used: list[SourceUsed] = []
@@ -51,13 +53,15 @@ class UsageInfo(BaseModel):
 
 
 class SimulateResponse(BaseModel):
-    expediente_id: str
-    created_at: str
-    is_valid: bool
-    summary: str
-    criteria: dict[str, CriterionResult]
-    corrective_action: str
-    compliance_score: int
+    expediente_id: str = ""
+    created_at: str = ""
+    in_scope: bool = True
+    out_of_scope_reason: str = ""
+    is_valid: bool = False
+    summary: str = ""
+    criteria: dict[str, CriterionResult] = {}
+    corrective_action: str = ""
+    compliance_score: int = 0
     structured_prompt: str = ""
     entity_type: str = ""
     framework: str = ""
@@ -67,6 +71,34 @@ class SimulateResponse(BaseModel):
     question_well_formed: bool = True
     question_feedback: str = ""
     usage: UsageInfo = UsageInfo()
+    free_queries_used: int = 0
+    free_queries_remaining: int = 0
+    is_paid: bool = False
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    email: str
+    free_queries_used: int
+    free_queries_remaining: int
+    is_paid: bool
+
+
+class UserStatus(BaseModel):
+    email: str
+    free_queries_used: int
+    free_queries_remaining: int
+    is_paid: bool
 
 
 class DocumentUploadResponse(BaseModel):
