@@ -44,6 +44,8 @@ def load_document_text(file_path: Path) -> str:
         return load_pdf_text(file_path)
     if suffix == ".docx":
         return load_docx_text(file_path)
+    if suffix == ".txt":
+        return file_path.read_text(encoding="utf-8")
     raise ValueError(f"Tipo de archivo no soportado para indexar: '{file_path.suffix}'")
 
 

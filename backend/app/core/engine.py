@@ -6,6 +6,7 @@ from openai import OpenAI
 
 from app.config import settings
 from app.core.rag import search_legal_context
+from app.core.web_sources import get_live_web_context
 from app.database import insert_simulation
 from app.models.schemas import DADResult, StructuringResult, UsageInfo
 
@@ -291,14 +292,19 @@ def _run_validation_prompt(
     structuring: StructuringResult,
 ) -> tuple[DADResult, UsageInfo, list[dict]]:
     """Prompt 2: recupera el contexto legal/normativo real (todas las
-    categorías salvo "metodologica") a partir de la pregunta YA organizada,
-    valida si está bien formulada, y produce el veredicto DAD usando el tipo
-    de entidad/marco que infirió el Prompt 1 como hipótesis de partida."""
+    categorías salvo "metodologica" indexadas en FAISS, MÁS las webs
+    institucionales consultadas en vivo — ver app/core/web_sources.py) a
+    partir de la pregunta YA organizada, valida si está bien formulada, y
+    produce el veredicto DAD usando el tipo de entidad/marco que infirió el
+    Prompt 1 como hipótesis de partida. El usuario nunca elige qué fuente
+    consultar: esto corre siempre, para cualquier pregunta en el dominio."""
     legal_results = search_legal_context(
         structuring.structured_prompt or "",
         top_k=8,
         exclude_categories=["metodologica"],
     )
+    live_web_results = get_live_web_context()
+    legal_results = legal_results + live_web_results
     legal_context = _format_legal_context(legal_results)
     sources_used = _sources_from_results(legal_results)
 
