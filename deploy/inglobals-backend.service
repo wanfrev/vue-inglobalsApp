@@ -1,0 +1,29 @@
+[Unit]
+Description=InglobalsApp DAD backend (FastAPI + Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=inglobals
+Group=inglobals
+WorkingDirectory=/home/inglobals/vue-inglobalsApp/backend
+EnvironmentFile=/home/inglobals/vue-inglobalsApp/backend/.env
+
+# --workers 2, no más: el modelo de embeddings (sentence-transformers) y el
+# índice FAISS se cargan en memoria POR WORKER (son procesos separados, no
+# comparten RAM). Con 4 o más workers en un Quasar (6GB) te quedas sin
+# margen. 2 workers ya permite atender 2 consultas reales en paralelo sin
+# que se bloqueen entre sí (ver nota en app/api/simulate.py).
+ExecStart=/home/inglobals/vue-inglobalsApp/backend/venv/bin/gunicorn app.main:app \
+    --workers 2 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8000 \
+    --timeout 90 \
+    --access-logfile - \
+    --error-logfile -
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

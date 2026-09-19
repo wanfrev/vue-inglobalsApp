@@ -10,10 +10,16 @@ router = APIRouter(prefix="/api/v1", tags=["simulate"])
 
 
 @router.post("/simulate", response_model=SimulateResponse)
-async def simulate(
+def simulate(
     payload: SimulateRequest,
     session: dict = Depends(get_current_session),
 ):
+    # Ruta síncrona a propósito (no "async def"): run_simulation() es 100%
+    # bloqueante (llamadas HTTP a Gemini + fetch de las webs en vivo, sin
+    # ningún await). Si fuera "async def", esas esperas (varios segundos)
+    # congelarían el event loop entero y bloquearían a TODOS los usuarios
+    # concurrentes. Con "def" normal, FastAPI la corre en un threadpool y
+    # cada request espera solo por sí misma.
     prompt = payload.prompt
     if not prompt.strip():
         raise HTTPException(status_code=400, detail="El prompt no puede estar vacío")

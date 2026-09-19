@@ -1,0 +1,24 @@
+# Basura de SO / editor a nivel de todo el repo (backend/ y frontend/ ya
+# tienen su propio .gitignore para venv, node_modules, .env, etc.)
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Archivos de bloqueo de Word que deja abierto un documento (~$archivo.docx)
+~$*
+
+# Bibliografía/normativa fuente para el RAG: son ~180MB y varios documentos
+# tienen derechos de autor de terceros (manuales IFAC/IESBA/ISO, etc.), no
+# son leyes de dominio público — no deben vivir en un repo de git. Se
+# indexan directo en el servidor con backend/scripts/ingest_knowledge_base.py
+# (necesitas tener estas carpetas en la raíz del proyecto para correrlo, pero
+# transfiéreselas al VPS por scp/rsync, no por git).
+/Bibliografia/
+/Bibliografia_pocesos_contables_sector_publico_vzla/
+/Biblioteca_Leyes_Vzla/
+/Biblioteca_colegio_contadores_publicos/
+/bibliografa_diplomado/
+/Sostenibilidad_nacioanl/
+/Fuentes_Web/
