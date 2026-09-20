@@ -1,0 +1,41 @@
+---
+import '../styles/global.css';
+import Navbar from '../components/Navbar.astro';
+import Footer from '../components/Footer.astro';
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{title} | Inglobals</title>
+		<meta name="description" content="Auditoria inteligente para un futuro sostenible" />
+		<link rel="icon" type="image/png" href="/logo.png" />
+		<link rel="apple-touch-icon" href="/logo.png" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			rel="stylesheet"
+			href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+		/>
+	</head>
+	<body class="bg-gradient-to-b from-slate-50 via-white to-slate-100 text-slate-900 font-sans">
+		<div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+			<div class="absolute top-0 left-1/4 w-[520px] h-[520px] bg-violetaIA/20 rounded-full blur-[140px] animate-pulse"></div>
+			<div class="absolute bottom-0 right-1/4 w-[640px] h-[640px] bg-verdeEsm/15 rounded-full blur-[150px]"></div>
+			<div
+				class="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:40px_40px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)] opacity-40"
+			></div>
+		</div>
+		<Navbar />
+
+		<main class="min-h-screen pt-24">
+			<slot />
+		</main>
+
+		<Footer />
+	</body>
+</html>

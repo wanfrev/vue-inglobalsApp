@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+body {
+	font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.02em;
+}
+
+p {
+	font-size: 1rem;
+	line-height: 1.75;
+}

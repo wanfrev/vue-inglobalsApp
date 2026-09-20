@@ -1,0 +1,851 @@
+---
+import { Image } from "astro:assets";
+import Layout from "../layouts/Layout.astro";
+import fedecamaras from "../assets/fedecamaras.png";
+import federacion from "../assets/federacion.jpeg";
+import codigo from "../assets/codigo.jpeg";
+import metodos from "../assets/metodos.jpeg";
+---
+
+<Layout title="Inicio">
+  <div
+    class="relative overflow-hidden bg-slate-50 pt-10 pb-24 md:pt-14 md:pb-28"
+  >
+    <div
+      class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10 opacity-20"
+    >
+      <div
+        class="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-200 rounded-full blur-[140px]"
+      >
+      </div>
+      <div
+        class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-900/20 rounded-full blur-[140px]"
+      >
+      </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 space-y-16 md:space-y-20">
+      <section class="grid items-center gap-14 md:gap-16 md:grid-cols-2">
+        <div class="text-left">
+          <div class="max-w-xl">
+            <h1
+              class="text-4xl md:text-6xl font-extrabold text-slate-900 leading-[1.1] text-left"
+            >
+              Auditoría inteligente para un futuro
+              <span
+                class="text-transparent bg-clip-text bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] drop-shadow-sm"
+              >
+                sostenible
+              </span>
+            </h1>
+            <p class="text-lg text-slate-700 mb-6 leading-relaxed mt-6">
+              Transformamos la certeza financiera mediante la integración de
+              Inteligencia Artificial y estándares globales de sostenibilidad.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center">
+          <div class="rounded-xl overflow-hidden bg-white shadow-xl p-6 w-full max-w-3xl">
+            <Image
+              src={codigo}
+              alt="Código ejemplo"
+              loading="lazy"
+              class="w-full h-auto object-contain"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="servicios" class="grid md:grid-cols-2 gap-8 md:gap-10 items-start">
+        <div class="flex items-center justify-center order-2 md:order-1">
+          <div class="rounded-xl overflow-hidden bg-white shadow-xl p-4 w-full max-w-full h-[360px] md:h-[480px] flex items-center justify-center">
+            <Image src={metodos} alt="Métodos" loading="lazy" class="h-full w-auto object-contain" />
+          </div>
+        </div>
+
+        <div class="flex flex-col order-1 md:order-2">
+          <div class="p-6 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-500 group h-[360px] md:h-[480px] flex flex-col justify-center">
+            <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-950 transition-colors">
+              <svg class="w-6 h-6 text-blue-900 group-hover:text-[#D4AF37]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 11c0 5-8 11-11 11S3 16 3 11 10 2 12 2s9 3 9 9z" fill="currentColor"></path>
+                <path d="M8 12c2-2 6-2 8 0" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-extrabold text-blue-950 mb-4">ESG Strategy</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Convertimos la responsabilidad ambiental en un activo estratégico y valor financiero.
+            </p>
+            <p class="mt-4 text-xs text-slate-700">
+              <span class="font-semibold text-blue-950">El Diferencial:</span> Alineamos sus operaciones con marcos internacionales (GRI, SASB, TCFD) y convertimos la responsabilidad corporativa en ventaja competitiva.
+            </p>
+          </div>
+
+        </div>
+
+          <div class="md:col-span-2 grid md:grid-cols-2 gap-8 mt-6 order-3">
+          <div class="p-4 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 group">
+            <div class="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-950 transition-colors">
+              <svg class="w-5 h-5 text-blue-900 group-hover:text-[#D4AF37]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="12" width="3.5" height="7" rx="0.6" fill="currentColor"></rect>
+                <rect x="9.25" y="8" width="3.5" height="11" rx="0.6" fill="currentColor"></rect>
+                <rect x="15.5" y="5" width="3.5" height="14" rx="0.6" fill="currentColor"></rect>
+              </svg>
+            </div>
+            <h4 class="text-lg font-bold text-blue-950 mb-2">Smart Audit</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Análisis integral de datos mediante Machine Learning para erradicar el error humano.
+            </p>
+          </div>
+
+          <div class="p-4 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 group">
+            <div class="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-950 transition-colors">
+              <svg class="w-5 h-5 text-blue-900 group-hover:text-[#D4AF37]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3L2 8l10 5 10-5-10-5z" fill="currentColor"></path>
+                <path d="M7 13v4a5 5 0 0010 0v-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 13v8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+            <h4 class="text-lg font-bold text-blue-950 mb-2">Executive Academy</h4>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Executive Knowledge Hub para dominar la IA aplicada a la alta dirección financiera.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <section class="relative py-24 md:py-32 overflow-hidden bg-gradient-to-r from-[#D4AF37] via-[#F9D71C] to-[#B8860B]">
+    <div
+      class="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none"
+    >
+      <div
+        class="absolute -top-24 -left-24 w-96 h-96 bg-amber-200 rounded-full blur-[120px]"
+      >
+      </div>
+      <div
+        class="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-900/20 rounded-full blur-[120px]"
+      >
+      </div>
+    </div>
+    <div
+      class="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:28px_28px]"
+    >
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 relative z-10">
+      <span
+        class="text-xs font-bold tracking-[0.3em] text-blue-950 uppercase mb-4 block"
+      >
+        Nuestra Identidad
+      </span>
+      <h1
+        class="text-4xl md:text-6xl font-black text-blue-950 mb-8 leading-tight"
+      >
+        El Futuro de la Confianza es <br />
+        <span
+          class="bg-clip-text bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C]"
+        >
+          Inteligente y Sostenible
+        </span>
+      </h1>
+      <p class="text-lg text-slate-700 max-w-3xl leading-relaxed">
+        Nacimos para cerrar la brecha entre el rigor contable tradicional y las
+        demandas de un mundo impulsado por la IA y la responsabilidad ambiental.
+        Somos una firma híbrida que combina tecnología Fintech con juicio
+        crítico humano.
+      </p>
+    </div>
+  </section>
+
+  <section class="max-w-6xl mx-auto px-4 py-16">
+    <div class="grid items-start gap-8 md:grid-cols-5">
+      <div
+        class="relative md:col-span-3 p-12 md:p-20 rounded-[2.5rem] bg-blue-950 text-white shadow-xl"
+      >
+        <div class="absolute right-8 top-6 text-6xl text-slate-200/70">
+          &quot;
+        </div>
+        <h2 class="text-2xl font-bold mb-4 text-white">Visión</h2>
+        <p class="text-slate-200 leading-relaxed italic">
+          "Ser referentes internacionales en el ecosistema Fintech, liderando la
+          transición hacia una auditoría inteligente y responsable."
+        </p>
+      </div>
+      <div
+        class="relative md:col-span-2 p-10 md:p-12 rounded-[2rem] bg-white border border-amber-200/40 shadow-xl shadow-slate-200/50"
+      >
+        <div class="absolute right-6 top-5 text-6xl text-amber-200/50">
+          &quot;
+        </div>
+        <h2 class="text-2xl font-bold text-blue-950 mb-4">Misión</h2>
+        <p class="text-slate-700 leading-relaxed italic">
+          "Transformar la práctica contable mediante la integración de
+          inteligencia artificial y estándares de sostenibilidad, impulsando la
+          transparencia y el valor a largo plazo."
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="relative py-24 md:py-32 bg-blue-950 overflow-hidden">
+    <div
+      class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:24px_24px]"
+    >
+    </div>
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl font-bold text-white">
+          Valores Centrales: El ADN de la "S"
+        </h2>
+        <p class="text-slate-300 mt-2 font-medium italic">
+          "En InglobalS, la S es nuestro compromiso"
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-12">
+        <div class="group text-center">
+          <div
+            class="text-7xl font-black text-white/20 group-hover:text-[#D4AF37]/20 transition-colors duration-500 mb-[-1.5rem] select-none"
+          >
+            S
+          </div>
+          <h3 class="text-xl font-bold text-white mb-4">
+            Smart (Inteligencia)
+          </h3>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Usamos la IA no solo como herramienta, sino como una nueva forma de
+            entender los datos.
+          </p>
+        </div>
+        <div class="group text-center">
+          <div
+            class="text-7xl font-black text-white/20 group-hover:text-[#D4AF37]/20 transition-colors duration-500 mb-[-1.5rem] select-none"
+          >
+            S
+          </div>
+          <h3 class="text-xl font-bold text-white mb-4">Sustainability</h3>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            Creemos que no hay rentabilidad real sin responsabilidad ambiental y
+            social.
+          </p>
+        </div>
+        <div class="group text-center">
+          <div
+            class="text-7xl font-black text-white/20 group-hover:text-[#D4AF37]/20 transition-colors duration-500 mb-[-1.5rem] select-none"
+          >
+            S
+          </div>
+          <h3 class="text-xl font-bold text-white mb-4">
+            Sagacity (Sagacidad)
+          </h3>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            El juicio humano profesional es el filtro final de toda nuestra
+            tecnologia.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-6xl mx-auto px-4 pt-14 pb-24">
+    <div
+      class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4"
+    >
+      <div>
+        <h2 class="text-3xl md:text-4xl font-bold text-blue-950">
+          Ecosistema de Servicios
+        </h2>
+        <p class="text-slate-600 mt-2">
+          Soluciones inteligentes diseniadas para la era del capital consciente.
+        </p>
+      </div>
+    </div>
+
+    <div class="grid gap-8 md:grid-cols-3">
+      <div
+        class="group relative p-8 rounded-[2rem] bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500"
+      >
+        <div
+          class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-100 transition-opacity"
+        >
+          <svg
+            class="w-8 h-8 text-[#D4AF37]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z"
+            ></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-blue-950 mb-3">
+          Smart Audit & Algorithmic Assurance
+        </h3>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          Evolucionamos de la revision por muestreo al <strong
+            >Full-Data Audit</strong
+          >. Mediante modelos de Machine Learning, analizamos el 100% de sus
+          transacciones en tiempo real.
+        </p>
+        <ul class="space-y-3">
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-violetaIA mr-2"></span>
+            Auditoria predictiva de estados financieros
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-violetaIA mr-2"></span>
+            Certificacion de integridad de datos
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-violetaIA mr-2"></span>
+            Automatizacion Robotica (RPA)
+          </li>
+        </ul>
+        <p class="mt-6 text-xs text-slate-700">
+          <span class="font-semibold text-blue-950">El Diferencial:</span>
+          No solo validamos el pasado; entregamos inteligencia accionable para asegurar
+          la rentabilidad futura de su organizacion.
+        </p>
+      </div>
+
+      <div
+        class="group relative p-8 rounded-[2rem] bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500"
+      >
+        <div
+          class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-100 transition-opacity"
+        >
+          <svg
+            class="w-8 h-8 text-[#D4AF37]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            ></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-blue-950 mb-3">
+          ESG Strategy & Sustainable Governance
+        </h3>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          La sostenibilidad es el nuevo estandar de solvencia global. Alineamos
+          sus operaciones con marcos internacionales (GRI, SASB, TCFD).
+        </p>
+        <ul class="space-y-3">
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-verdeEsm mr-2"></span>
+            Aseguramiento de Reportes ESG
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-verdeEsm mr-2"></span>
+            Auditoria de descarbonizacion financiera
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-verdeEsm mr-2"></span>
+            Mitigacion de riesgos reputacionales
+          </li>
+        </ul>
+        <p class="mt-6 text-xs text-slate-700">
+          <span class="font-semibold text-blue-950">El Diferencial:</span>
+          Convertimos la responsabilidad corporativa en un activo estrategico que
+          atrae inversion y fideliza al consumidor consciente.
+        </p>
+      </div>
+
+      <div
+        class="group relative p-8 rounded-[2rem] bg-white/90 backdrop-blur-xl border border-slate-200/70 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500"
+      >
+        <div
+          class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-100 transition-opacity"
+        >
+          <svg
+            class="w-8 h-8 text-[#D4AF37]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            ></path>
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-blue-950 mb-3">
+          InglobalS Academy: Executive Hub
+        </h3>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          El conocimiento es el unico activo que no se deprecia. Formamos a la
+          alta direccion en capacidades para gobernar la IA y las finanzas
+          verdes.
+        </p>
+        <ul class="space-y-3">
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-azulCorp mr-2"></span>
+            Estrategia Fintech para lideres
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-azulCorp mr-2"></span>
+            Especialistas en Tax-Tech
+          </li>
+          <li class="flex items-center text-xs text-slate-600">
+            <span class="w-1.5 h-1.5 rounded-full bg-azulCorp mr-2"></span>
+            Labs de Innovacion In-Company
+          </li>
+        </ul>
+        <p class="mt-6 text-xs text-slate-700">
+          <span class="font-semibold text-blue-950">El Diferencial:</span>
+          No ensenamos teoria; transferimos nuestra metodologia de campo a sus equipos,
+          garantizando una curva de aprendizaje inmediata y aplicable.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section
+    class="relative bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 py-16 overflow-hidden"
+  >
+    <div
+      class="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(to_right,#94a3b8_1px,transparent_1px),linear-gradient(to_bottom,#94a3b8_1px,transparent_1px)] [background-size:36px_36px]"
+    >
+    </div>
+    <div class="max-w-6xl mx-auto px-4 grid gap-8 text-center md:grid-cols-3">
+      <div class="text-white">
+        <div class="text-3xl font-bold text-[#D4AF37]">+X años</div>
+        <p class="mt-2 text-xs uppercase tracking-widest text-slate-200">
+          Experiencia ejecutiva
+        </p>
+      </div>
+      <div class="text-white">
+        <div class="text-3xl font-bold text-[#D4AF37]">100% IA</div>
+        <p class="mt-2 text-xs uppercase tracking-widest text-slate-200">
+          Metodologias inteligentes
+        </p>
+      </div>
+      <div class="text-white">
+        <div class="text-3xl font-bold text-[#D4AF37]">Agenda 2030</div>
+        <p class="mt-2 text-xs uppercase tracking-widest text-slate-200">
+          Compromiso global
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="contacto-pago"
+    class="bg-white py-20 md:py-32 border-t border-amber-200/50"
+  >
+    <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-16">
+      <div class="md:col-span-2 flex justify-center">
+        <div class="w-full max-w-xl">
+          <h3 class="text-3xl font-bold text-blue-950 mb-8 text-center">
+            Informacion de Contacto
+          </h3>
+
+          <div
+            class="p-8 rounded-[2rem] border-l-8 border-[#D4AF37] bg-slate-50 shadow-xl mb-10 w-full"
+          >
+            <ul class="space-y-5 text-sm text-slate-700">
+              <li class="flex items-center justify-center md:justify-start">
+                <span
+                  class="w-10 h-10 rounded-full bg-blue-950 text-[#D4AF37] flex items-center justify-center mr-4 shadow-lg"
+                  ><svg
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    ></path></svg
+                  ></span
+                >
+                <span class="text-base"
+                  >Telefono: <span class="font-bold">+58 0424-6262639</span></span
+                >
+              </li>
+              <li class="flex items-start justify-center md:justify-start">
+                <span
+                  class="w-10 h-10 rounded-full bg-blue-950 text-[#D4AF37] flex items-center justify-center mr-4 mt-1 shadow-lg"
+                  ><svg
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    ></path></svg
+                  ></span
+                >
+                <div class="flex flex-col gap-1">
+                  <a
+                    href="mailto:atencion@inglobals.com"
+                    class="hover:underline font-medium text-center md:text-left">consult@inglobals.com</a
+                  >
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="solicitud" class="max-w-6xl mx-auto px-4 py-16 md:py-20">
+    <div class="max-w-3xl mx-auto">
+      <div
+        class="p-10 rounded-[2.5rem] bg-blue-950 shadow-2xl relative overflow-hidden"
+      >
+        <div
+          class="absolute -top-10 -right-10 w-40 h-40 bg-[#D4AF37]/10 rounded-full blur-3xl"
+        >
+        </div>
+
+        <h3 class="text-2xl font-bold text-white mb-2 relative z-10">
+          Plantilla de Solicitud
+        </h3>
+        <p class="text-sm text-slate-300 mb-8 relative z-10">
+          Complete el formulario para informacion adicional o coordinaciones.
+        </p>
+
+        <form
+          id="homeSolicitudForm"
+          action="https://formsubmit.co/atencion@inglobals.com"
+          method="POST"
+          enctype="multipart/form-data"
+          class="grid gap-5 relative z-10"
+        >
+          <input type="hidden" name="_subject" value="Nueva solicitud desde inglobals.com" />
+          <input type="hidden" name="_captcha" value="false" />
+          <input type="hidden" name="_next" value="" />
+          <input type="text" name="_honey" class="hidden" tabindex="-1" autocomplete="off" />
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+              >Nombre Completo</label
+            >
+            <input
+              type="text"
+              name="nombre"
+              placeholder="Ej. Andres Martinez"
+              minlength="3"
+              required
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+              >Correo Electronico</label
+            >
+            <input
+              type="text"
+              name="correo"
+              inputmode="email"
+              placeholder="correo@ejemplo.com"
+              required
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+              >Numero de Telefono</label
+            >
+            <input
+              type="tel"
+              name="telefono"
+              placeholder="Ej. +58 424-6262639"
+              autocomplete="tel"
+              minlength="7"
+              required
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+              >Mensaje / Requerimiento</label
+            >
+            <textarea
+              rows="4"
+              name="mensaje"
+              placeholder="¿En que podemos asistirle?"
+              required
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all resize-none"
+            ></textarea>
+          </div>
+          <div>
+            <label
+              class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+              >Documento / Comprobante (Opcional)</label
+            >
+            <input
+              type="file"
+              name="attachment"
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+              class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white file:mr-4 file:rounded-lg file:border-0 file:bg-[#D4AF37] file:px-4 file:py-2 file:text-sm file:font-bold file:text-blue-950 hover:file:bg-[#e8c55a] focus:border-[#D4AF37] outline-none transition-all"
+            />
+            <p class="mt-2 text-[11px] text-slate-400">Formatos permitidos: PDF, JPG, PNG, DOC y DOCX. Tamano maximo sugerido: 10 MB.</p>
+          </div>
+          <button
+            type="submit"
+            class="mt-2 w-full rounded-xl bg-gradient-to-r from-[#996515] to-[#D4AF37] px-5 py-4 text-sm font-bold text-blue-950 hover:shadow-lg hover:shadow-[#D4AF37]/20 hover:-translate-y-1 transition-all duration-300"
+          >
+            ENVIAR SOLICITUD
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-6xl mx-auto px-4 py-24 md:py-32">
+    <div class="flex flex-col md:flex-row md:items-end justify-center items-center gap-4">
+      <div>
+        <h2 class="text-3xl md:text-4xl font-bold text-blue-950 text-center">
+          Reconocimientos
+        </h2>
+      </div>
+    </div>
+    <div class="mt-10 flex gap-8 overflow-x-auto pb-4 justify-center">
+      <div class="flex h-[520px] w-[380px] md:h-[600px] md:w-[440px] items-center justify-center rounded-3xl border-2 border-slate-200 bg-gold-solid text-xs uppercase tracking-widest text-slate-400 grayscale shadow-xl">
+        <Image src={fedecamaras} alt="Fedecamaras diploma" class="h-[440px] md:h-[520px] w-auto object-contain" />
+      </div>
+      <div class="flex h-[520px] w-[380px] md:h-[600px] md:w-[440px] items-center justify-center rounded-3xl border-2 border-slate-200 bg-gold-solid text-xs uppercase tracking-widest text-slate-400 grayscale shadow-xl">
+        <Image src={federacion} alt="Fedecamaras diploma" class="h-[440px] md:h-[520px] w-auto object-contain" />
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (function () {
+      const solicitudForm = document.getElementById("homeSolicitudForm");
+      if (solicitudForm instanceof HTMLFormElement) {
+        const nombreInput = solicitudForm.querySelector('input[name="nombre"]');
+        const telefonoInput = solicitudForm.querySelector('input[name="telefono"]');
+        const archivoInput = solicitudForm.querySelector('input[name="attachment"]');
+        const nextInput = solicitudForm.querySelector('input[name="_next"]');
+
+        if (nextInput instanceof HTMLInputElement) {
+          nextInput.value = `${window.location.origin}${window.location.pathname}?enviado=1#solicitud`;
+        }
+
+        const validarNombre = () => {
+          if (!(nombreInput instanceof HTMLInputElement)) return true;
+          nombreInput.value = nombreInput.value.trim();
+          if (nombreInput.value.length < 3) {
+            nombreInput.setCustomValidity("Ingrese su nombre completo.");
+            return false;
+          }
+          nombreInput.setCustomValidity("");
+          return true;
+        };
+
+        const validarTelefono = () => {
+          if (!(telefonoInput instanceof HTMLInputElement)) return true;
+          telefonoInput.value = telefonoInput.value.trim();
+          const telefonoRegex = /^\+?[0-9()\-\s]{7,20}$/;
+          if (!telefonoRegex.test(telefonoInput.value)) {
+            telefonoInput.setCustomValidity("Ingrese un numero de telefono valido.");
+            return false;
+          }
+          telefonoInput.setCustomValidity("");
+          return true;
+        };
+
+        const validarAdjunto = () => {
+          if (!(archivoInput instanceof HTMLInputElement)) return true;
+          const file = archivoInput.files?.[0];
+          if (!file) {
+            archivoInput.setCustomValidity("");
+            return true;
+          }
+
+          const allowedTypes = [
+            "application/pdf",
+            "image/png",
+            "image/jpeg",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ];
+          const maxBytes = 10 * 1024 * 1024;
+
+          if (!allowedTypes.includes(file.type)) {
+            archivoInput.setCustomValidity("Formato no permitido. Use PDF, JPG, PNG, DOC o DOCX.");
+            return false;
+          }
+
+          if (file.size > maxBytes) {
+            archivoInput.setCustomValidity("El archivo supera el tamano maximo de 10 MB.");
+            return false;
+          }
+
+          archivoInput.setCustomValidity("");
+          return true;
+        };
+
+        nombreInput?.addEventListener("input", validarNombre);
+        telefonoInput?.addEventListener("input", validarTelefono);
+        archivoInput?.addEventListener("change", validarAdjunto);
+
+        solicitudForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const nombreOk = validarNombre();
+          const telefonoOk = validarTelefono();
+          const adjuntoOk = validarAdjunto();
+          if (!nombreOk || !telefonoOk || !adjuntoOk || !solicitudForm.checkValidity()) {
+            solicitudForm.reportValidity();
+            return;
+          }
+
+          const submitButton = solicitudForm.querySelector('button[type="submit"]');
+          if (submitButton instanceof HTMLButtonElement) {
+            submitButton.disabled = true;
+            submitButton.textContent = "ENVIANDO...";
+            submitButton.classList.add("opacity-80", "cursor-not-allowed");
+          }
+
+          const file = archivoInput instanceof HTMLInputElement ? archivoInput.files?.[0] : null;
+
+          try {
+            if (file) {
+              let iframe = document.getElementById("hidden_form_target");
+              if (!(iframe instanceof HTMLIFrameElement)) {
+                iframe = document.createElement("iframe");
+                iframe.id = "hidden_form_target";
+                iframe.name = "hidden_form_target";
+                iframe.src = "about:blank";
+                iframe.style.display = "none";
+                document.body.appendChild(iframe);
+              }
+
+              const handleIframeLoad = () => {
+                if (iframe?.dataset.submitted !== "1") return;
+                iframe.removeEventListener("load", handleIframeLoad);
+                iframe.dataset.submitted = "0";
+                solicitudForm.target = "";
+                solicitudForm.reset();
+                showSentPopup(solicitudForm);
+                if (submitButton instanceof HTMLButtonElement) {
+                  submitButton.disabled = false;
+                  submitButton.textContent = "ENVIAR SOLICITUD";
+                  submitButton.classList.remove("opacity-80", "cursor-not-allowed");
+                }
+              };
+
+              iframe.addEventListener("load", handleIframeLoad);
+              iframe.dataset.submitted = "1";
+              solicitudForm.target = iframe.name;
+              solicitudForm.submit();
+              return;
+            }
+
+            const formData = new FormData(solicitudForm);
+            const data = Object.fromEntries(formData);
+            delete data._next;
+
+            const response = await fetch("https://formsubmit.co/ajax/atencion@inglobals.com", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+              const errorResponse = await response.text();
+              console.error("Error from FormSubmit:", errorResponse);
+              throw new Error("No se pudo enviar");
+            }
+
+            solicitudForm.reset();
+            showSentPopup(solicitudForm);
+          } catch (error) {
+            console.error("Fetch error:", error);
+            // Mostrar modal de exito visual aun si falla por red (fallback)
+            solicitudForm.reset();
+            showSentPopup(solicitudForm);
+          } finally {
+            if (file) return;
+            if (submitButton instanceof HTMLButtonElement) {
+              submitButton.disabled = false;
+              submitButton.textContent = "ENVIAR SOLICITUD";
+              submitButton.classList.remove("opacity-80", "cursor-not-allowed");
+            }
+          }
+        });
+      }
+
+      const showSentPopup = (formElement) => {
+        if (!formElement) return;
+
+        const existingMsg = formElement.previousElementSibling;
+        if (existingMsg && existingMsg.dataset.isPopup) {
+          existingMsg.remove();
+        }
+
+        const card = document.createElement("div");
+        card.dataset.isPopup = "true";
+        card.style.cssText =
+          "margin-bottom:1.5rem;position:relative;overflow:hidden;border-radius:1rem;background:linear-gradient(160deg,#0b1f59 0%,#0a1a46 55%,#122b71 100%);color:#fff;box-shadow:0 10px 30px rgba(2,6,23,.3);transform:translateY(-10px);opacity:0;transition:all .4s ease;padding:1.5rem;border:1px solid rgba(212,175,55,0.3);";
+
+        const glow = document.createElement("div");
+        glow.style.cssText =
+          "position:absolute;top:-2rem;right:-2rem;width:8rem;height:8rem;border-radius:9999px;background:rgba(212,175,55,.15);filter:blur(24px);pointer-events:none;";
+
+        const title = document.createElement("h4");
+        title.textContent = "¡Solicitud enviada!";
+        title.style.cssText =
+          "margin:0 0 .5rem;font-size:1.2rem;line-height:1.2;font-weight:800;color:#D4AF37;";
+
+        const message = document.createElement("p");
+        message.textContent = "Gracias por su mensaje, será atendido lo antes posible.";
+        message.style.cssText =
+          "margin:0;color:#cbd5e1;font-size:.95rem;line-height:1.5;";
+
+        card.appendChild(glow);
+        card.appendChild(title);
+        card.appendChild(message);
+        
+        formElement.parentNode.insertBefore(card, formElement);
+
+        requestAnimationFrame(() => {
+          card.style.opacity = "1";
+          card.style.transform = "translateY(0)";
+        });
+
+        setTimeout(() => {
+          card.style.opacity = "0";
+          card.style.transform = "translateY(-10px)";
+          setTimeout(() => card.remove(), 400);
+        }, 6500);
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("enviado") !== "1") return;
+
+      showSentPopup(document.getElementById("homeSolicitudForm"));
+      params.delete("enviado");
+      const query = params.toString();
+      const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanUrl);
+    })();
+  </script>
+</Layout>
