@@ -207,11 +207,14 @@ def _sources_from_results(legal_results: list[dict]) -> list[dict]:
 def _get_client() -> OpenAI:
     # Sin timeout explícito, una red lenta o colgada deja al usuario mirando
     # el spinner por minutos (el SDK de OpenAI por defecto espera hasta 10
-    # minutos). 30s es de sobra para una respuesta normal.
+    # minutos). 60s (antes 30s — muy justo en producción: la latencia real
+    # desde el VPS hacia Gemini resultó mayor que en desarrollo local, y
+    # encima cada llamada de Prompt 2 ya espera la búsqueda RAG + los fetches
+    # web en vivo antes de siquiera llegar a este client.create()).
     return OpenAI(
         api_key=settings.AI_API_KEY,
         base_url=settings.AI_BASE_URL,
-        timeout=30.0,
+        timeout=60.0,
     )
 
 
