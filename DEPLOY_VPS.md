@@ -115,10 +115,9 @@ nano .env
 ```
 
 Pega esto, reemplazando `AI_API_KEY` por la misma clave de Gemini que ya usas
-en local (está en tu `backend\.env` de Windows). `CORS_ORIGINS` solo necesita
-el subdominio del simulador — es el único que le habla a esta API, el sitio
-de marketing (`inglobals.com`) solo tiene un link `<a>`, no hace llamadas
-directas al backend:
+en local (está en tu `backend\.env` de Windows). El simulador vive en
+`inglobals.com/simulador` (mismo dominio que la landing, no un subdominio
+aparte), así que `CORS_ORIGINS` es el dominio raíz:
 
 ```
 AI_API_KEY=tu_clave_real_de_gemini_aqui
@@ -128,7 +127,7 @@ AI_TEMPERATURE=0.1
 AI_MAX_TOKENS=4000
 AI_PRICE_INPUT_PER_1M=0.75
 AI_PRICE_OUTPUT_PER_1M=3.75
-CORS_ORIGINS=https://app.inglobals.com
+CORS_ORIGINS=https://inglobals.com,https://www.inglobals.com
 ```
 
 Guarda con `Ctrl+O`, Enter, y sal con `Ctrl+X`.
@@ -157,11 +156,13 @@ deactivate
 cd ~/vue-inglobalsApp/frontend
 ```
 
-Crea el `.env.production` con el subdominio del simulador (Vite lo incrusta
-en el build, por eso tiene que existir ANTES de compilar):
+Crea el `.env.production` con el dominio real (Vite lo incrusta en el
+build, por eso tiene que existir ANTES de compilar). El simulador vive bajo
+`/simulador` del mismo dominio (no un subdominio), así que la API base es el
+dominio raíz:
 
 ```bash
-echo "VITE_API_BASE_URL=https://app.inglobals.com" > .env.production
+echo "VITE_API_BASE_URL=https://inglobals.com" > .env.production
 ```
 
 ```bash
@@ -170,7 +171,9 @@ npm run build
 ```
 
 Esto genera `frontend/dist/` — son los archivos estáticos que Nginx va a
-servir directamente.
+servir bajo `/simulador/` (`vite.config.js` ya tiene `base: '/simulador/'`
+configurado, por eso los assets compilados van a referenciarse con ese
+prefijo).
 
 ## 8. Landing (Astro → inglobals.com)
 
@@ -179,13 +182,13 @@ corriendo, solo compilarlo una vez:
 
 ```bash
 cd ~/vue-inglobalsApp/landing
-echo "PUBLIC_SIMULATOR_URL=https://app.inglobals.com" > .env.production
+echo "PUBLIC_SIMULATOR_URL=https://inglobals.com/simulador" > .env.production
 npm install
 npm run build
 ```
 
 Esto genera `landing/dist/`. El botón "SIMULADOR" de `iyf.astro` ya apunta a
-esa variable — así confirmas que el link va al subdominio correcto.
+esa variable.
 
 ## 9. Servicio systemd del backend
 
@@ -203,55 +206,51 @@ Deberías ver `active (running)`. Si no, revisa los logs:
 sudo journalctl -u inglobals-backend -n 50 --no-pager
 ```
 
-## 10. Nginx (los dos sitios)
+## 10. Nginx (un solo dominio, dos apps)
 
 ```bash
-sudo cp ~/vue-inglobalsApp/deploy/nginx-app.conf /etc/nginx/sites-available/inglobals-app
-sudo cp ~/vue-inglobalsApp/deploy/nginx-landing.conf /etc/nginx/sites-available/inglobals-landing
-sudo ln -s /etc/nginx/sites-available/inglobals-app /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/inglobals-landing /etc/nginx/sites-enabled/
+sudo cp ~/vue-inglobalsApp/deploy/nginx.conf /etc/nginx/sites-available/inglobals
+sudo ln -s /etc/nginx/sites-available/inglobals /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Si tu dominio NO es `inglobals.com` o el subdominio del simulador no es
-`app.inglobals.com`, edita `server_name` en ambos archivos antes del `nginx
--t` (`sudo nano /etc/nginx/sites-available/inglobals-app`, ídem para
-`inglobals-landing`) — y ajusta también los `VITE_API_BASE_URL` /
-`PUBLIC_SIMULATOR_URL` de los pasos 7 y 8.
+Si tu dominio no es `inglobals.com`, edita `server_name` antes del `nginx
+-t` (`sudo nano /etc/nginx/sites-available/inglobals`) — y ajusta también
+los `VITE_API_BASE_URL` / `PUBLIC_SIMULATOR_URL` de los pasos 7 y 8.
 
 `nginx -t` debe decir "syntax is ok" y "test is successful" antes de seguir.
 
-## 11. Apuntar los dominios y activar HTTPS
+## 11. Apuntar el dominio y activar HTTPS
 
 En el panel de DNS de Namecheap (o donde tengas el dominio), crea estos
 registros **A** apuntando a la IP del VPS:
 
-- `inglobals.com` y `www.inglobals.com` → sitio de marketing
-- `app.inglobals.com` → simulador
+- `inglobals.com`
+- `www.inglobals.com`
 
-Espera unos minutos a que propague (`nslookup inglobals.com` /
-`nslookup app.inglobals.com` desde tu PC). Nota: `inglobals.com` hoy vive en
-Netlify — hasta que no cambies este registro A, sigue sirviendo desde ahí;
-puedes probar todo en `app.inglobals.com` primero y mover `inglobals.com`
-cuando estés conforme.
+Espera unos minutos a que propague (`nslookup inglobals.com` desde tu PC).
+Nota: `inglobals.com` hoy vive en Netlify — hasta que no cambies este
+registro A, el dominio sigue sirviendo desde ahí. Puedes probar todo primero
+contra la IP del VPS directamente (con `curl -H "Host: inglobals.com"
+http://TU_IP_DEL_VPS/` o similar) y mover el DNS cuando estés conforme.
 
 Con eso propagado:
 
 ```bash
 sudo certbot --nginx -d inglobals.com -d www.inglobals.com
-sudo certbot --nginx -d app.inglobals.com
 ```
 
-Certbot va a pedirte un correo y reescribir los Nginx config para servir por
+Certbot va a pedirte un correo y reescribir el Nginx config para servir por
 HTTPS automáticamente (incluye renovación automática, no hay que hacer nada
 más después).
 
 ## 12. Verificar
 
-Desde tu navegador: `https://app.inglobals.com` debería cargar el Simulador
-DAD — escribe una consulta de prueba y confirma que responde. Y
+Desde tu navegador: `https://inglobals.com` debería cargar la landing, y
+`https://inglobals.com/simulador` debería cargar el Simulador DAD — escribe
+una consulta de prueba y confirma que responde. Y
 `https://inglobals.com/iyf` debería mostrar el botón "SIMULADOR" ya
 funcionando, llevándote al simulador.
 
