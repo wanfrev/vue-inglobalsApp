@@ -4,6 +4,12 @@ gunicorn==23.0.0
 python-dotenv==1.0.1
 pydantic-settings==2.7.1
 openai==1.59.3
+# <2 a propósito: los wheels de NumPy 2.x están compilados asumiendo
+# instrucciones x86-64-v2 (SSE4.2/POPCNT) que algunas CPUs virtuales de VPS
+# no exponen — causa "RuntimeError: NumPy was built with baseline
+# optimizations... but your machine doesn't support" al importar. Los
+# wheels 1.26.x no tienen ese requisito. Verificado en el VPS de producción.
+numpy<2
 faiss-cpu==1.12.0
 sentence-transformers==3.4.1
 pypdf2==3.0.1
