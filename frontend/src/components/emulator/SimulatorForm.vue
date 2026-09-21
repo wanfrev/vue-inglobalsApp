@@ -1,13 +1,29 @@
 <script setup>
 import { ref } from 'vue'
-import { simulate } from '../../services/api.js'
-import { promptText, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
+import { simulate, startSession } from '../../services/api.js'
+import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 
 const messages = ref([])
 const isProcessing = ref(false)
 
 function canSimulate() {
   return promptText.value.trim().length > 0 && !isProcessing.value
+}
+
+// Si el token quedó inválido o nunca se guardó (ver el fix de getToken() en
+// api.js), un 401 en pleno chat no debería mostrarle un error crudo al
+// usuario: pedimos una sesión nueva y reintentamos la MISMA consulta una vez
+// — igual que App.vue hace al cargar la página, pero también aquí en medio
+// del chat.
+async function simulateWithRetry(prompt) {
+  try {
+    return await simulate({ prompt })
+  } catch (error) {
+    if (error.status !== 401) throw error
+    const session = await startSession()
+    setSession(session)
+    return await simulate({ prompt })
+  }
 }
 
 async function send() {
@@ -22,7 +38,7 @@ async function send() {
   promptText.value = ''
 
   try {
-    const result = await simulate({ prompt: text })
+    const result = await simulateWithRetry(text)
 
     updateSessionStatus(result)
 

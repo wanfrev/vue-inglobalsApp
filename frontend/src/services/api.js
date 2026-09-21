@@ -1,20 +1,33 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 const TOKEN_KEY = 'inglobals_token'
 
-export function getToken() {
+// El token vive en memoria como fuente de verdad — localStorage es solo para
+// persistir entre recargas. Si localStorage falla en silencio (modo privado,
+// restricciones de storage de iOS/Safari, PWA en standalone, etc.), la
+// sesión seguía viéndose bien en la UI pero cada request real salía sin
+// token porque getToken() dependía 100% de una lectura a localStorage que
+// nunca se había guardado. Con el valor en memoria, la sesión sigue
+// funcionando durante toda la pestaña aunque no sobreviva un refresh.
+let currentToken = (() => {
   try {
     return localStorage.getItem(TOKEN_KEY) || ''
   } catch {
     return ''
   }
+})()
+
+export function getToken() {
+  return currentToken
 }
 
 export function setToken(token) {
+  currentToken = token || ''
   try {
     if (token) localStorage.setItem(TOKEN_KEY, token)
     else localStorage.removeItem(TOKEN_KEY)
   } catch {
-    // localStorage no disponible (modo privado, etc.) — la sesión no persiste entre recargas
+    // localStorage no disponible — el token sigue sirviendo en memoria para
+    // esta pestaña, solo no sobrevive un refresh.
   }
 }
 
