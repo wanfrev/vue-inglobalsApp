@@ -68,8 +68,11 @@ ssh inglobals@TU_IP_DEL_VPS
 ```bash
 sudo apt install -y python3.12 python3.12-venv python3-pip git nginx certbot python3-certbot-nginx
 
-# Node.js 20 LTS (para compilar el frontend directamente en el servidor)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# Node.js 22 LTS (para compilar el frontend/landing directamente en el
+# servidor). Con Node 20, el toolchain de Astro 5.17.x (undici, sharp) tira
+# EBADENGINE y sharp no logra resolver su binario nativo — verificado en el
+# VPS de producción.
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
