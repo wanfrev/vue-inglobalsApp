@@ -1,8 +1,9 @@
 import json
+import time
 import uuid
 from datetime import datetime, timezone
 
-from openai import OpenAI
+from openai import APIStatusError, OpenAI
 
 from app.config import settings
 from app.core.rag import search_legal_context
@@ -227,17 +228,30 @@ def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> float:
 def _call_deepseek(client: OpenAI, system_prompt: str, user_prompt: str) -> tuple[dict, UsageInfo]:
     """Llama al proveedor de IA configurado y devuelve (json_parseado,
     uso_de_tokens). El uso de tokens viene del campo `usage` de la respuesta
-    de la API, no de algo que el modelo reporte dentro de su propio texto."""
-    response = client.chat.completions.create(
-        model=settings.AI_MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=settings.AI_TEMPERATURE,
-        max_tokens=settings.AI_MAX_TOKENS,
-        response_format={"type": "json_object"},
-    )
+    de la API, no de algo que el modelo reporte dentro de su propio texto.
+
+    Reintenta UNA vez si el proveedor responde 429 (rate limit) o 503 (modelo
+    saturado) — son errores transitorios de "alta demanda" del lado de
+    Gemini, no un problema del código, y ya los vimos en producción real. No
+    reintenta otros códigos (400/401/etc.) porque no se van a resolver solos."""
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=settings.AI_MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=settings.AI_TEMPERATURE,
+                max_tokens=settings.AI_MAX_TOKENS,
+                response_format={"type": "json_object"},
+            )
+            break
+        except APIStatusError as e:
+            if attempt == 0 and e.status_code in (429, 503):
+                time.sleep(2)
+                continue
+            raise
 
     data = json.loads(response.choices[0].message.content)
 
