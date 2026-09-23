@@ -25,6 +25,26 @@ class Settings(BaseSettings):
     AI_PRICE_INPUT_PER_1M: float = 0.75
     AI_PRICE_OUTPUT_PER_1M: float = 3.75
 
+    # Proveedor de respaldo (opcional). Si el proveedor principal falla del
+    # todo — no un 429/503 puntual, que ya se reintenta solo, sino agotando
+    # los reintentos, o una caída total del servicio — se prueba con este
+    # segundo proveedor antes de rendirse. Vacío por defecto = sin respaldo,
+    # comportamiento idéntico a como estaba antes. Cualquier endpoint
+    # compatible con el SDK de OpenAI sirve; el default apunta a DeepSeek
+    # porque ya se probó con este proyecto al inicio.
+    AI_FALLBACK_API_KEY: str = ""
+    AI_FALLBACK_BASE_URL: str = "https://api.deepseek.com/v1"
+    AI_FALLBACK_MODEL: str = "deepseek-chat"
+    AI_FALLBACK_PRICE_INPUT_PER_1M: float = 0.27
+    AI_FALLBACK_PRICE_OUTPUT_PER_1M: float = 1.10
+
+    # Si el costo estimado de IA acumulado en el día (UTC) supera esto, se
+    # deja un log CRITICAL (ver app/core/engine.py) — para que un bug o un
+    # abuso no te sorprenda en la factura. Por ahora solo queda en el log del
+    # servidor (`journalctl -u inglobals-backend`); conectar un canal de
+    # notificación real (Telegram, correo) queda pendiente para más adelante.
+    DAILY_COST_ALERT_USD: float = 5.0
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     # DATA_DIR es override-able con la variable de entorno DATA_DIR — en
     # Render (o cualquier host con disco persistente) debe apuntar a la ruta

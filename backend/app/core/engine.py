@@ -1,15 +1,19 @@
 import json
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
 
-from openai import APIStatusError, OpenAI
+from openai import APIConnectionError, APIStatusError, OpenAI
+from pydantic import BaseModel, ValidationError
 
 from app.config import settings
 from app.core.rag import search_legal_context
 from app.core.web_sources import get_live_web_context
-from app.database import insert_simulation
+from app.database import get_today_cost_usd, insert_simulation
 from app.models.schemas import DADResult, StructuringResult, UsageInfo
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Prompt 1 — Organizador
@@ -205,7 +209,36 @@ def _sources_from_results(legal_results: list[dict]) -> list[dict]:
     ]
 
 
-def _get_client() -> OpenAI:
+def _get_providers() -> list[dict]:
+    """Lista ordenada de proveedores a probar: el principal siempre, y el de
+    respaldo (AI_FALLBACK_*) solo si tiene API key configurada — si no, la
+    lista queda con un solo elemento y el comportamiento es idéntico al de
+    antes de tener respaldo."""
+    providers = [
+        {
+            "name": "principal",
+            "api_key": settings.AI_API_KEY,
+            "base_url": settings.AI_BASE_URL,
+            "model": settings.AI_MODEL,
+            "price_input": settings.AI_PRICE_INPUT_PER_1M,
+            "price_output": settings.AI_PRICE_OUTPUT_PER_1M,
+        }
+    ]
+    if settings.AI_FALLBACK_API_KEY:
+        providers.append(
+            {
+                "name": "respaldo",
+                "api_key": settings.AI_FALLBACK_API_KEY,
+                "base_url": settings.AI_FALLBACK_BASE_URL,
+                "model": settings.AI_FALLBACK_MODEL,
+                "price_input": settings.AI_FALLBACK_PRICE_INPUT_PER_1M,
+                "price_output": settings.AI_FALLBACK_PRICE_OUTPUT_PER_1M,
+            }
+        )
+    return providers
+
+
+def _build_client(provider: dict) -> OpenAI:
     # Sin timeout explícito, una red lenta o colgada deja al usuario mirando
     # el spinner por minutos (el SDK de OpenAI por defecto espera hasta 10
     # minutos). 60s (antes 30s — muy justo en producción: la latencia real
@@ -213,67 +246,118 @@ def _get_client() -> OpenAI:
     # encima cada llamada de Prompt 2 ya espera la búsqueda RAG + los fetches
     # web en vivo antes de siquiera llegar a este client.create()).
     return OpenAI(
-        api_key=settings.AI_API_KEY,
-        base_url=settings.AI_BASE_URL,
+        api_key=provider["api_key"],
+        base_url=provider["base_url"],
         timeout=60.0,
     )
 
 
-def _estimate_cost(prompt_tokens: int, completion_tokens: int) -> float:
-    input_cost = (prompt_tokens / 1_000_000) * settings.AI_PRICE_INPUT_PER_1M
-    output_cost = (completion_tokens / 1_000_000) * settings.AI_PRICE_OUTPUT_PER_1M
+def _estimate_cost(prompt_tokens: int, completion_tokens: int, price_input: float, price_output: float) -> float:
+    input_cost = (prompt_tokens / 1_000_000) * price_input
+    output_cost = (completion_tokens / 1_000_000) * price_output
     return round(input_cost + output_cost, 6)
 
 
-def _call_deepseek(client: OpenAI, system_prompt: str, user_prompt: str) -> tuple[dict, UsageInfo]:
-    """Llama al proveedor de IA configurado y devuelve (json_parseado,
-    uso_de_tokens). El uso de tokens viene del campo `usage` de la respuesta
-    de la API, no de algo que el modelo reporte dentro de su propio texto.
+def _call_deepseek(
+    system_prompt: str, user_prompt: str, response_model: type[BaseModel]
+) -> tuple[BaseModel, UsageInfo]:
+    """Llama al proveedor de IA configurado (y a un proveedor de respaldo si
+    hay uno configurado en AI_FALLBACK_* y el principal falla del todo) y
+    devuelve (resultado_ya_validado_contra_response_model, uso_de_tokens). El
+    uso de tokens viene del campo `usage` de la respuesta de la API, no de
+    algo que el modelo reporte dentro de su propio texto.
 
-    Reintenta UNA vez si el proveedor responde 429 (rate limit) o 503 (modelo
-    saturado) — son errores transitorios de "alta demanda" del lado de
-    Gemini, no un problema del código, y ya los vimos en producción real. No
-    reintenta otros códigos (400/401/etc.) porque no se van a resolver solos."""
-    for attempt in range(2):
-        try:
-            response = client.chat.completions.create(
-                model=settings.AI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=settings.AI_TEMPERATURE,
-                max_tokens=settings.AI_MAX_TOKENS,
-                response_format={"type": "json_object"},
+    Por cada proveedor, reintenta UNA vez si: responde 429 (rate limit) o 503
+    (modelo saturado) — "alta demanda" transitoria, ya la vimos en
+    producción; hay un error de conexión/timeout — el timeout de 60s ya lo
+    vimos saltar en producción real, y un segundo intento suele bastar; o el
+    JSON que devuelve no parsea o no calza con el esquema esperado (cortado
+    por max_tokens, campo faltante, etc.). Si el proveedor sigue sin
+    funcionar tras esos 2 intentos, se pasa al siguiente proveedor de la
+    lista en vez de rendirse de una vez."""
+    last_error: Exception | None = None
+
+    for provider in _get_providers():
+        client = _build_client(provider)
+        for attempt in range(2):
+            try:
+                response = client.chat.completions.create(
+                    model=provider["model"],
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=settings.AI_TEMPERATURE,
+                    max_tokens=settings.AI_MAX_TOKENS,
+                    response_format={"type": "json_object"},
+                )
+            except (APIStatusError, APIConnectionError) as e:
+                last_error = e
+                is_retryable_status = isinstance(e, APIStatusError) and e.status_code in (429, 503)
+                is_connection_issue = isinstance(e, APIConnectionError)
+                if attempt == 0 and (is_retryable_status or is_connection_issue):
+                    if is_retryable_status:
+                        time.sleep(2)
+                    continue
+                break  # agota los intentos de ESTE proveedor, prueba el siguiente
+
+            usage = response.usage
+            prompt_tokens = usage.prompt_tokens if usage else 0
+            # Ojo: algunos modelos (ej. Gemini con "thinking" activo) cobran
+            # tokens de razonamiento interno que NO aparecen en
+            # `completion_tokens`, solo se ven reflejados en `total_tokens`.
+            # Si confiamos solo en `completion_tokens` subestimamos el costo
+            # real. Usamos total-prompt como base del costo de salida — es
+            # el dato que sí refleja lo que se cobra de verdad.
+            total_tokens_reported = usage.total_tokens if usage else prompt_tokens
+            completion_tokens = max(
+                usage.completion_tokens if usage else 0,
+                total_tokens_reported - prompt_tokens,
             )
-            break
-        except APIStatusError as e:
-            if attempt == 0 and e.status_code in (429, 503):
-                time.sleep(2)
-                continue
-            raise
+            usage_info = UsageInfo(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                estimated_cost_usd=_estimate_cost(
+                    prompt_tokens, completion_tokens, provider["price_input"], provider["price_output"]
+                ),
+            )
 
-    data = json.loads(response.choices[0].message.content)
+            try:
+                data = json.loads(response.choices[0].message.content)
+                return response_model(**data), usage_info
+            except (json.JSONDecodeError, ValidationError) as e:
+                last_error = e
+                if attempt == 0:
+                    continue
+                break  # agota los intentos de ESTE proveedor, prueba el siguiente
 
-    usage = response.usage
-    prompt_tokens = usage.prompt_tokens if usage else 0
-    # Ojo: algunos modelos (ej. Gemini con "thinking" activo) cobran tokens de
-    # razonamiento interno que NO aparecen en `completion_tokens`, solo se ven
-    # reflejados en `total_tokens`. Si confiamos solo en `completion_tokens`
-    # subestimamos el costo real. Usamos total-prompt como base del costo de
-    # salida — es el dato que sí refleja lo que se cobra de verdad.
-    total_tokens_reported = usage.total_tokens if usage else prompt_tokens
-    completion_tokens = max(
-        usage.completion_tokens if usage else 0,
-        total_tokens_reported - prompt_tokens,
-    )
-    usage_info = UsageInfo(
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=prompt_tokens + completion_tokens,
-        estimated_cost_usd=_estimate_cost(prompt_tokens, completion_tokens),
-    )
-    return data, usage_info
+    assert last_error is not None
+    raise last_error
+
+
+_last_cost_alert_date: dict = {"date": None}
+
+
+def _check_daily_cost_alert() -> None:
+    """Si el gasto estimado de IA de hoy (UTC) ya supera
+    DAILY_COST_ALERT_USD, deja un log CRITICAL — a lo sumo uno por día (para
+    no inundar el log con el mismo aviso en cada consulta subsiguiente).
+    Nunca debe tumbar la simulación: cualquier error acá se traga."""
+    today = datetime.now(timezone.utc).date()
+    if _last_cost_alert_date["date"] == today:
+        return
+    try:
+        total = get_today_cost_usd()
+    except Exception:
+        return
+    if total >= settings.DAILY_COST_ALERT_USD:
+        logger.critical(
+            "ALERTA DE GASTO: el costo estimado de IA hoy (%s) ya es $%.4f, "
+            "por encima del umbral configurado ($%.2f, ver DAILY_COST_ALERT_USD en .env).",
+            today.isoformat(), total, settings.DAILY_COST_ALERT_USD,
+        )
+        _last_cost_alert_date["date"] = today
 
 
 def _sum_usage(a: UsageInfo, b: UsageInfo) -> UsageInfo:
@@ -285,7 +369,7 @@ def _sum_usage(a: UsageInfo, b: UsageInfo) -> UsageInfo:
     )
 
 
-def _run_structuring_prompt(client: OpenAI, raw_prompt: str) -> tuple[StructuringResult, UsageInfo]:
+def _run_structuring_prompt(raw_prompt: str) -> tuple[StructuringResult, UsageInfo]:
     """Prompt 1: organiza la consulta guiándose por el enfoque metodológico/
     epistemológico recuperado (categoría "metodologica"), e infiere tipo de
     entidad / marco normativo hipotético (el usuario no los elige). Todavía
@@ -299,13 +383,11 @@ def _run_structuring_prompt(client: OpenAI, raw_prompt: str) -> tuple[Structurin
 
     system_prompt = PROMPT_1_SYSTEM.format(methodological_context=methodological_context)
 
-    data, usage = _call_deepseek(client, system_prompt, raw_prompt)
-    structuring = StructuringResult(**data)
+    structuring, usage = _call_deepseek(system_prompt, raw_prompt, StructuringResult)
     return structuring, usage
 
 
 def _run_validation_prompt(
-    client: OpenAI,
     structuring: StructuringResult,
 ) -> tuple[DADResult, UsageInfo, list[dict]]:
     """Prompt 2: recupera el contexto legal/normativo real (todas las
@@ -340,8 +422,7 @@ def _run_validation_prompt(
         legal_context=legal_context,
     )
 
-    data, usage = _call_deepseek(client, system_prompt, structuring.structured_prompt)
-    dad_result = DADResult(**data)
+    dad_result, usage = _call_deepseek(system_prompt, structuring.structured_prompt, DADResult)
     return dad_result, usage, sources_used
 
 
@@ -351,9 +432,7 @@ def run_simulation(session_token: str, prompt: str) -> dict:
     expediente ni se guarda en el historial, y NO cuenta contra el límite de
     consultas gratis de la sesión (eso lo decide el caller, ver
     app/api/simulate.py, con el `usage` de esta única llamada como dato)."""
-    client = _get_client()
-
-    structuring, usage_1 = _run_structuring_prompt(client, prompt)
+    structuring, usage_1 = _run_structuring_prompt(prompt)
 
     if not structuring.in_scope:
         return {
@@ -363,7 +442,7 @@ def run_simulation(session_token: str, prompt: str) -> dict:
             "usage": usage_1.model_dump(),
         }
 
-    dad_result, usage_2, sources_used = _run_validation_prompt(client, structuring)
+    dad_result, usage_2, sources_used = _run_validation_prompt(structuring)
     total_usage = _sum_usage(usage_1, usage_2)
 
     expediente_id = f"AUD-{datetime.now(timezone.utc).strftime('%Y')}-{uuid.uuid4().hex[:6].upper()}"
@@ -420,5 +499,6 @@ def run_simulation(session_token: str, prompt: str) -> dict:
     }
 
     insert_simulation(simulation_data)
+    _check_daily_cost_alert()
 
     return result_payload

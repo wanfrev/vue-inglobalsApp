@@ -51,7 +51,9 @@ async function downloadEntry(entry) {
     <p v-if="downloadError" class="mb-3 rounded-xl border border-oro/40 bg-oro/5 px-3 py-2 text-xs font-medium text-oroOscuro">
       {{ downloadError }}
     </p>
-    <div class="hidden overflow-x-auto rounded-2xl border border-slate-200/80 md:block">
+    <!-- lg (1024px), no md (768px): con 6 columnas la tabla no cabe cómoda
+    en un tablet en portrait — el breakpoint md salía con scroll horizontal. -->
+    <div class="hidden overflow-x-auto rounded-2xl border border-slate-200/80 lg:block">
       <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white/80">
       <thead>
         <tr>
@@ -131,7 +133,7 @@ async function downloadEntry(entry) {
     </table>
     </div>
 
-    <div class="space-y-3 md:hidden">
+    <div class="space-y-3 lg:hidden">
       <article
         v-for="(entry, i) in props.entries"
         :key="`mobile-${i}`"

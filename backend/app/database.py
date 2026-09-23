@@ -184,6 +184,22 @@ def get_simulations(
     return [dict(row) for row in rows]
 
 
+def get_today_cost_usd() -> float:
+    """Suma el costo estimado de todas las simulaciones creadas desde la
+    medianoche UTC de hoy — usado para la alerta de gasto diario (ver
+    app/core/engine.py)."""
+    start_of_day = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    ).isoformat()
+    conn = get_sqlite_connection()
+    row = conn.execute(
+        "SELECT COALESCE(SUM(estimated_cost_usd), 0) AS total FROM simulations WHERE created_at >= ?",
+        (start_of_day,),
+    ).fetchone()
+    conn.close()
+    return float(row["total"])
+
+
 def get_simulation_by_expediente(expediente_id: str, session_token: str) -> dict | None:
     conn = get_sqlite_connection()
     row = conn.execute(

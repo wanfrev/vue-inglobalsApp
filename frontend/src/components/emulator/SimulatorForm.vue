@@ -250,7 +250,7 @@ function formatResponse(result) {
           <textarea
             v-model="promptText"
             rows="1"
-            placeholder="Escribe tu consulta de auditoría..."
+            placeholder="Escribe tu consulta..."
             :disabled="isProcessing"
              class="min-h-0 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-azulCorp outline-none placeholder:text-slate-400 disabled:opacity-50"
             @keydown.enter.exact.prevent="send"

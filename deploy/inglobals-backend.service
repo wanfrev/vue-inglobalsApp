@@ -14,18 +14,19 @@ EnvironmentFile=/home/inglobals/vue-inglobalsApp/backend/.env
 # comparten RAM). Con 4 o más workers en un Quasar (6GB) te quedas sin
 # margen. 2 workers ya permite atender 2 consultas reales en paralelo sin
 # que se bloqueen entre sí (ver nota en app/api/simulate.py).
-# --timeout 260: una consulta real hace 2 llamadas a Gemini (60s de timeout
-# cada una, con 1 reintento automático si Gemini responde 429/503 — ver
-# app/core/engine.py) más la búsqueda RAG y los fetches web en vivo. Peor
-# caso teórico: 2 llamadas x (60s + reintento de 60s) ≈ 240s + overhead. Si
-# Gunicorn mata el worker antes de eso, el error que ve el usuario es un
-# 502/timeout crudo de Gunicorn en vez del mensaje limpio que ya maneja el
-# código (o del reintento que hubiera funcionado con más tiempo).
+# --timeout 500: cada llamada a la IA (Prompt 1 y Prompt 2) ahora prueba
+# hasta 2 proveedores (principal + respaldo opcional AI_FALLBACK_*), 2
+# intentos cada uno, 60s de timeout por intento — ver app/core/engine.py.
+# Peor caso teórico por llamada: 2 proveedores x 2 intentos x 60s = 240s: dos
+# llamadas por consulta ≈ 480s. Es un techo para el caso raro (todo falla
+# dos veces en ambos proveedores), no lo esperable — pero si Gunicorn mata
+# el worker antes de eso, el usuario ve un 502/timeout crudo en vez de que
+# el respaldo alcance a responder.
 ExecStart=/home/inglobals/vue-inglobalsApp/backend/venv/bin/gunicorn app.main:app \
     --workers 2 \
     --worker-class uvicorn.workers.UvicornWorker \
     --bind 127.0.0.1:8000 \
-    --timeout 260 \
+    --timeout 500 \
     --access-logfile - \
     --error-logfile -
 

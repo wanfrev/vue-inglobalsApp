@@ -1,0 +1,4 @@
+# Los scripts bash SIEMPRE con salto de línea LF, sin importar el
+# core.autocrlf de quien commitee — un .sh con CRLF falla en Linux (el
+# shebang "#!/usr/bin/env bash\r" no resuelve, "bad interpreter").
+*.sh text eol=lf

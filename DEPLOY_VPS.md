@@ -267,32 +267,28 @@ sudo journalctl -u inglobals-backend -f
 
 ## Cómo actualizar el proyecto después de este primer despliegue
 
-Cada vez que hagas cambios y quieras subirlos:
+Un solo comando, desde cualquier carpeta del VPS:
 
 ```bash
-cd ~/vue-inglobalsApp
-git pull
-
-cd backend
-source venv/bin/activate
-pip install -r requirements.txt   # solo si cambiaron dependencias
-deactivate
-sudo systemctl restart inglobals-backend
-
-cd ../frontend
-npm install                        # solo si cambiaron dependencias
-npm run build
-
-cd ../landing
-npm install                        # solo si cambiaron dependencias
-npm run build
+bash ~/vue-inglobalsApp/deploy/update.sh
 ```
 
-No hace falta tocar Nginx ni systemd de nuevo salvo que cambies rutas o
-puertos.
+Hace todo: `git pull`, reinstala dependencias del backend, reinicia el
+servicio systemd (y confirma que quedó `active`), recompila frontend y
+landing. Si `git pull` falla porque hay cambios locales sin commitear en el
+VPS (ej. tocaste algo a mano), el script se detiene ahí con el error de git
+— resuélvelo (o descarta esos cambios) y vuelve a correrlo.
 
-Si agregas documentos nuevos a la bibliografía, no viajan por `git pull` (ver
-paso 0): vuelve a correr el `scp` del paso 5 solo para la carpeta que cambió,
-y luego `python scripts/ingest_knowledge_base.py` en el VPS — el script se
-salta los archivos que ya estaban indexados, así que es seguro correrlo de
-nuevo.
+El script a propósito **no toca**:
+- **La bibliografía** — no viaja por `git pull` (ver paso 0). Si agregas
+  documentos nuevos, sube la carpeta que cambió con el `scp` del paso 5 y
+  corre `python scripts/ingest_knowledge_base.py` tú mismo — es seguro
+  correrlo de nuevo, se salta los archivos que ya estaban indexados.
+- **El Nginx vivo** — certbot ya lo modificó con los bloques HTTPS;
+  sobrescribirlo con `deploy/nginx.conf` se los borraría. Si ese archivo
+  cambió en el pull, el script te avisa al final para que revises la
+  diferencia y apliques el cambio a mano.
+
+Si prefieres los pasos manuales (para entender qué hace, o depurar algo
+puntual), son los mismos que ya viste en las Fases 4-9 de este documento,
+sin el paso 0/5 de la bibliografía ni la configuración de Nginx/certbot.

@@ -12,8 +12,15 @@ suelen rechazar tráfico automatizado sin un navegador real; BCV tiene un
 certificado TLS con cadena incompleta), esa fuente simplemente se omite —
 la simulación sigue con lo que sí se obtuvo más la bibliografía indexada,
 nunca se corta por esto.
+
+El contenido de estas páginas institucionales no cambia minuto a minuto, así
+que se cachea en memoria (ver `_cache`) para no volver a pedirlas en cada
+consulta — eso solo suma latencia y carga innecesaria a esos sitios. La
+caché es por proceso (cada worker de Gunicorn tiene la suya), lo cual está
+bien: sigue reduciendo drásticamente cuántas veces se golpea cada sitio.
 """
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -65,6 +72,15 @@ _HEADERS = {
 MAX_CHARS_PER_SOURCE = 2500
 FETCH_TIMEOUT_SECONDS = 4
 
+# 20 min: en medio del rango de 15-30 min que se pidió. Si TODAS las fuentes
+# fallaron (ej. un corte de red pasajero del VPS), no lo "congelamos" 20
+# min — se reintenta pronto para no quedarnos sin nada más tiempo del
+# necesario si la red se recupera antes.
+CACHE_TTL_SECONDS = 20 * 60
+EMPTY_CACHE_TTL_SECONDS = 60
+
+_cache: dict = {"results": None, "fetched_at": 0.0}
+
 
 def _html_to_text(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
@@ -101,9 +117,7 @@ def _fetch_one(source: dict) -> dict | None:
     }
 
 
-def get_live_web_context() -> list[dict]:
-    """Intenta traer las 5 fuentes en paralelo; devuelve solo las que
-    respondieron a tiempo y con contenido. Nunca lanza excepción."""
+def _fetch_all_live() -> list[dict]:
     results: list[dict] = []
     with ThreadPoolExecutor(max_workers=len(WEB_SOURCES)) as pool:
         futures = [pool.submit(_fetch_one, source) for source in WEB_SOURCES]
@@ -114,4 +128,22 @@ def get_live_web_context() -> list[dict]:
                 result = None
             if result:
                 results.append(result)
+    return results
+
+
+def get_live_web_context() -> list[dict]:
+    """Devuelve las fuentes vivas cacheadas si todavía valen (ver
+    CACHE_TTL_SECONDS/EMPTY_CACHE_TTL_SECONDS); si no, las trae de nuevo en
+    paralelo — solo las que respondieron a tiempo y con contenido. Nunca
+    lanza excepción."""
+    now = time.monotonic()
+    cached = _cache["results"]
+    if cached is not None:
+        ttl = CACHE_TTL_SECONDS if cached else EMPTY_CACHE_TTL_SECONDS
+        if (now - _cache["fetched_at"]) < ttl:
+            return cached
+
+    results = _fetch_all_live()
+    _cache["results"] = results
+    _cache["fetched_at"] = now
     return results
