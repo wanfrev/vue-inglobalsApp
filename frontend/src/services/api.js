@@ -50,8 +50,14 @@ async function request(endpoint, options = {}) {
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    const error = new Error(err.detail || `Error ${res.status}`)
+    // Si el servidor ni alcanzó a responder con JSON (típico de un 502/504 de
+    // Nginx cuando el backend tardó de más), res.statusText da un
+    // "Gateway Time-out" pelado que no le dice nada al usuario.
+    const err = await res.json().catch(() => ({}))
+    const gatewayMessage = [502, 503, 504].includes(res.status)
+      ? 'El servidor tardó demasiado en responder o no está disponible. Intenta de nuevo en un momento.'
+      : null
+    const error = new Error(err.detail || gatewayMessage || res.statusText || `Error ${res.status}`)
     error.status = res.status
     throw error
   }

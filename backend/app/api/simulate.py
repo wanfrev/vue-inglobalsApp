@@ -1,10 +1,15 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
+from openai import APIConnectionError, APIStatusError
 
 from app.config import settings
 from app.core.session import get_current_session
 from app.core.engine import run_simulation
 from app.database import increment_free_queries
 from app.models.schemas import SimulateRequest, SimulateResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["simulate"])
 
@@ -35,10 +40,31 @@ def simulate(
             ),
         )
 
+    # El detalle real del error (cuotas, IDs de proyecto, URLs internas del
+    # proveedor) va solo al log del servidor — al usuario le llega un mensaje
+    # genérico. Como el contador de consultas gratis solo se descuenta más
+    # abajo, cuando run_simulation() terminó bien, un error aquí no le
+    # cuesta ninguna consulta al usuario.
     try:
         result = run_simulation(session_token=session["token"], prompt=prompt)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error en simulación: {str(e)}")
+    except (APIStatusError, APIConnectionError) as e:
+        logger.error("Proveedores de IA no disponibles para esta consulta: %s", str(e)[:500])
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "El servicio de IA está temporalmente saturado o no disponible. "
+                "Intenta de nuevo en unos minutos — no se descontó ninguna consulta gratis."
+            ),
+        )
+    except Exception:
+        logger.exception("Error inesperado procesando una simulación")
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Ocurrió un error procesando tu consulta. "
+                "Intenta de nuevo — no se descontó ninguna consulta gratis."
+            ),
+        )
 
     # Una pregunta fuera de contexto no consume consultas gratis (el
     # organizador la cortó antes de llegar al veredicto) — ver run_simulation.

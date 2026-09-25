@@ -245,10 +245,18 @@ def _build_client(provider: dict) -> OpenAI:
     # desde el VPS hacia Gemini resultó mayor que en desarrollo local, y
     # encima cada llamada de Prompt 2 ya espera la búsqueda RAG + los fetches
     # web en vivo antes de siquiera llegar a este client.create()).
+    # max_retries=0: el SDK de OpenAI por defecto ya reintenta 2 veces por su
+    # cuenta (respetando el header Retry-After, hasta 60s cada espera). Como
+    # _call_deepseek ya maneja sus propios reintentos y el paso al proveedor
+    # de respaldo, dejar los del SDK encendidos los apilaba: en el nivel
+    # gratuito de Gemini un 429 podía terminar en 3 requests x 2 intentos, ya
+    # sea quemando la cuota más rápido o esperando minutos ocultos hasta que
+    # Nginx cortaba con "Gateway Time-out".
     return OpenAI(
         api_key=provider["api_key"],
         base_url=provider["base_url"],
         timeout=60.0,
+        max_retries=0,
     )
 
 
@@ -293,7 +301,22 @@ def _call_deepseek(
                 )
             except (APIStatusError, APIConnectionError) as e:
                 last_error = e
-                is_retryable_status = isinstance(e, APIStatusError) and e.status_code in (429, 503)
+                logger.warning(
+                    "Proveedor de IA '%s' falló (intento %d/2): %s",
+                    provider["name"], attempt + 1, str(e)[:300],
+                )
+                # Un 429 por cuota DIARIA (ej. el nivel gratuito de Gemini:
+                # "GenerateRequestsPerDayPerProject...") no se resuelve
+                # reintentando — no se libera hasta el día siguiente — así
+                # que se pasa directo al proveedor de respaldo.
+                is_daily_quota = (
+                    isinstance(e, APIStatusError) and e.status_code == 429 and "PerDay" in str(e)
+                )
+                is_retryable_status = (
+                    isinstance(e, APIStatusError)
+                    and e.status_code in (429, 503)
+                    and not is_daily_quota
+                )
                 is_connection_issue = isinstance(e, APIConnectionError)
                 if attempt == 0 and (is_retryable_status or is_connection_issue):
                     if is_retryable_status:
