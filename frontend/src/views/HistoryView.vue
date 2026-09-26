@@ -11,15 +11,28 @@ const loadError = ref('')
 
 const ENTITY_LABELS = { publica: 'Pública', privada: 'Privada', mixta: 'Mixta' }
 
+// result_json guarda la respuesta completa (Loop 1, Loop 2, consumo). Los
+// expedientes generados con el formato anterior (ecuación DAD) no tienen
+// "loop2": se listan igual, pero sin el detalle por loops.
+function parseResult(record) {
+  try {
+    const parsed = JSON.parse(record.result_json || '')
+    return parsed?.loop2 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 function mapRecord(record) {
   return {
     id: record.expediente_id,
     date: record.created_at ? new Date(record.created_at).toLocaleDateString() : '',
     entity: ENTITY_LABELS[record.entity_type] || record.entity_type,
     request: record.prompt,
-    percent: record.compliance_score,
-    cvStatus: record.criteria_cv,
-    cvFailed: record.criteria_cv === 'failed',
+    tokens: record.total_tokens || 0,
+    cost: record.estimated_cost_usd || 0,
+    energy: record.energy_wh || 0,
+    result: parseResult(record),
     record,
   }
 }

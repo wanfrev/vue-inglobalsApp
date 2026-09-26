@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { simulate, startSession } from '../../services/api.js'
+import AnswerCard from './AnswerCard.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 
 const messages = ref([])
@@ -51,48 +52,7 @@ async function send() {
       return
     }
 
-    if (result.structured_prompt && result.structured_prompt !== text) {
-      messages.value.push({
-        role: 'structured',
-        text: result.structured_prompt,
-        entityType: result.entity_type,
-        framework: result.framework,
-      })
-    }
-
-    if (result.question_well_formed === false) {
-      messages.value.push({
-        role: 'alert',
-        text: result.question_feedback || 'La pregunta necesita más información para evaluarse con rigor.',
-        failedVar: 'Pregunta incompleta',
-      })
-    }
-
-    messages.value.push({
-      role: 'dad',
-      text: formatResponse(result),
-    })
-
-    messages.value.push({
-      role: 'usage',
-      usage: result.usage,
-    })
-
-    if (!result.is_valid) {
-      const failedCriteria = Object.entries(result.criteria)
-        .filter(([_, v]) => v.status === 'failed')
-        .map(([k]) => k)
-
-      if (failedCriteria.length > 0) {
-        messages.value.push({
-          role: 'alert',
-          text:
-            result.corrective_action ||
-            'Se detectaron incumplimientos. Revisa los criterios marcados.',
-          failedVar: failedCriteria.join(', '),
-        })
-      }
-    }
+    messages.value.push({ role: 'answer', result })
   } catch (error) {
     if (error.status === 402) {
       messages.value.push({
@@ -109,30 +69,6 @@ async function send() {
     isProcessing.value = false
     simulationStatus.value = 'idle'
   }
-}
-
-function formatResponse(result) {
-  const statusIcon = (s) => (s === 'passed' ? '✓' : '✗')
-  const statusText = (s) => (s === 'passed' ? 'OK' : 'FALLÓ')
-
-  let text = `**${result.summary}**\n\n`
-  text += `**Expediente:** ${result.expediente_id}\n`
-  text += `**Score de Cumplimiento:** ${result.compliance_score}%\n\n`
-  text += `**Criterios DAD:**\n`
-
-  for (const [key, criterion] of Object.entries(result.criteria)) {
-    text += `- ${key}: ${statusIcon(criterion.status)} ${statusText(criterion.status)}\n`
-    text += `  ${criterion.detail}\n`
-    if (criterion.article_ref) {
-      text += `  _Ref: ${criterion.article_ref}_\n`
-    }
-  }
-
-  if (result.corrective_action) {
-    text += `\n**Acción Correctiva:** ${result.corrective_action}`
-  }
-
-  return text
 }
 </script>
 
@@ -167,32 +103,8 @@ function formatResponse(result) {
           </div>
         </div>
 
-        <!-- Pregunta reformulada por el Prompt 1 (organizador) -->
-        <div v-else-if="msg.role === 'structured'" class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-          <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white text-xs font-bold text-slate-500">02</span>
-          <div class="min-w-0 flex-1 break-words">
-            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Pregunta organizada</p>
-            <p class="text-sm text-slate-700 leading-relaxed">{{ msg.text }}</p>
-            <p v-if="msg.entityType || msg.framework" class="mt-2 text-[11px] text-slate-400">
-              Entidad detectada: {{ msg.entityType }} · Marco: {{ msg.framework }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Respuesta DAD -->
-        <div
-          v-else-if="msg.role === 'dad'"
-          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_22px_rgba(15,23,42,0.05)]"
-        >
-          <div
-            class="break-words text-sm leading-relaxed text-slate-800 whitespace-pre-line"
-            v-html="
-              msg.text
-                .replace(/\*\*(.*?)\*\*/g, '<strong class=\'text-azulCorp\'>$1</strong>')
-                .replace(/_(.*?)_/g, '<em class=\'text-slate-500\'>$1</em>')
-            "
-          ></div>
-        </div>
+        <!-- Respuesta del protocolo AOPCCPS+IA (Loop 1 + Loop 2 + consumo) -->
+        <AnswerCard v-else-if="msg.role === 'answer'" :result="msg.result" />
 
         <!-- Alerta de rebote -->
         <div
@@ -218,15 +130,6 @@ function formatResponse(result) {
         >
           <p class="text-sm font-semibold text-oroOscuro">{{ msg.text }}</p>
           <p class="mt-2 text-xs text-slate-500">Activa tu cuenta para seguir consultando y poder descargar tus memorias técnicas.</p>
-        </div>
-
-        <!-- Consumo de tokens / costo (Prompt 2) -->
-        <div
-          v-else-if="msg.role === 'usage' && msg.usage"
-          class="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-slate-400"
-        >
-          <span class="break-words">{{ msg.usage.total_tokens }} tokens ({{ msg.usage.prompt_tokens }} entrada / {{ msg.usage.completion_tokens }} salida)</span>
-          <span>≈ ${{ msg.usage.estimated_cost_usd.toFixed(6) }} USD</span>
         </div>
       </div>
 
@@ -258,6 +161,7 @@ function formatResponse(result) {
 
           <button
             @click="send"
+            aria-label="Enviar consulta"
             :disabled="!canSimulate()"
             class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] text-white shadow-md hover:shadow-lg hover:shadow-oro/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >

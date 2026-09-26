@@ -10,18 +10,14 @@ defineEmits(['select'])
 
 const downloadError = ref('')
 
-function getPercent(entry) {
-  return Math.max(0, Math.min(100, Number(entry?.percent || 0)))
+const fmtInt = (n) => Number(n || 0).toLocaleString('es')
+const fmtUsd = (n) => {
+  const v = Number(n || 0)
+  if (v === 0) return '—'
+  return v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(3)}`
 }
-
-function hasContextAlert(entry) {
-  return Boolean(entry?.cvFailed) || entry?.cvStatus === 'failed' || getPercent(entry) < 100
-}
-
-function complianceLabel(entry) {
-  const percent = getPercent(entry)
-  return hasContextAlert(entry) ? `${percent}% Alerta` : '100% Aprobado'
-}
+// Los expedientes anteriores a las métricas de energía quedaron en 0.
+const fmtEnergy = (n) => (Number(n || 0) > 0 ? `${Number(n).toFixed(2)} Wh` : '—')
 
 function triggerDownload(payload, filename) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -51,8 +47,8 @@ async function downloadEntry(entry) {
     <p v-if="downloadError" class="mb-3 rounded-xl border border-oro/40 bg-oro/5 px-3 py-2 text-xs font-medium text-oroOscuro">
       {{ downloadError }}
     </p>
-    <!-- lg (1024px), no md (768px): con 6 columnas la tabla no cabe cómoda
-    en un tablet en portrait — el breakpoint md salía con scroll horizontal. -->
+    <!-- lg (1024px), no md (768px): con 8 columnas la tabla no cabe cómoda en un
+    tablet en portrait — el breakpoint md salía con scroll horizontal. -->
     <div class="hidden overflow-x-auto rounded-2xl border border-slate-200/80 lg:block">
       <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white/80">
       <thead>
@@ -61,7 +57,9 @@ async function downloadEntry(entry) {
           <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Fecha</th>
           <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Entidad</th>
           <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Solicitud</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Cumplimiento</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Tokens</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Costo</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Energía est.</th>
           <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
         </tr>
       </thead>
@@ -75,37 +73,16 @@ async function downloadEntry(entry) {
           <td class="p-4 font-medium text-azulCorp">{{ entry.id }}</td>
           <td class="p-4">{{ entry.date }}</td>
           <td class="p-4">{{ entry.entity }}</td>
-          <td class="max-w-[21rem] truncate p-4 text-slate-600">{{ entry.request }}</td>
-          <td class="p-4">
-            <div class="flex items-center gap-3">
-              <span
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold"
-                :class="hasContextAlert(entry) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
-              >
-                {{ getPercent(entry) }}%
-              </span>
-              <div class="min-w-0 flex-1">
-                <div class="mb-1 h-1.5 w-full rounded-full bg-slate-200">
-                <div
-                  class="h-1.5 rounded-full"
-                  :class="hasContextAlert(entry) ? 'bg-oro' : 'bg-verdeEsm'"
-                  :style="{ width: getPercent(entry) + '%' }"
-                ></div>
-              </div>
-                <p
-                  class="truncate text-xs font-medium"
-                  :class="hasContextAlert(entry) ? 'text-oroOscuro' : 'text-verdeEsm'"
-                >
-                  {{ complianceLabel(entry) }}
-                </p>
-              </div>
-            </div>
-          </td>
+          <td class="max-w-[18rem] truncate p-4 text-slate-600">{{ entry.request }}</td>
+          <td class="whitespace-nowrap p-4 text-right tabular-nums">{{ fmtInt(entry.tokens) }}</td>
+          <td class="whitespace-nowrap p-4 text-right tabular-nums">{{ fmtUsd(entry.cost) }}</td>
+          <td class="whitespace-nowrap p-4 text-right tabular-nums text-verdeEsm">{{ fmtEnergy(entry.energy) }}</td>
           <td class="p-4">
             <div class="flex items-center gap-2">
               <button
                 class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-azulCorp"
                 title="Ver detalle"
+                aria-label="Ver detalle"
                 @click.stop="$emit('select', entry)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
@@ -117,6 +94,7 @@ async function downloadEntry(entry) {
               <button
                 class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
                 title="Descargar memoria técnica"
+                aria-label="Descargar memoria técnica"
                 @click.stop="downloadEntry(entry)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
@@ -137,7 +115,7 @@ async function downloadEntry(entry) {
       <article
         v-for="(entry, i) in props.entries"
         :key="`mobile-${i}`"
-           class="cursor-pointer rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-oro/30 hover:shadow-md"
+        class="cursor-pointer rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-oro/30 hover:shadow-md"
         @click="$emit('select', entry)"
       >
         <div class="mb-3 flex items-start justify-between gap-3">
@@ -148,28 +126,19 @@ async function downloadEntry(entry) {
           <span class="text-xs text-slate-500">{{ entry.date }}</span>
         </div>
 
-         <p class="mb-3 break-words text-sm text-slate-600">{{ entry.request }}</p>
+        <p class="mb-3 break-words text-sm text-slate-600">{{ entry.request }}</p>
 
-        <div class="mb-3 flex items-center gap-3">
-          <span
-            class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-            :class="hasContextAlert(entry) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
-          >
-            {{ complianceLabel(entry) }}
-          </span>
-          <div class="h-1.5 flex-1 rounded-full bg-slate-200">
-            <div
-              class="h-1.5 rounded-full"
-              :class="hasContextAlert(entry) ? 'bg-oro' : 'bg-verdeEsm'"
-              :style="{ width: getPercent(entry) + '%' }"
-            ></div>
-          </div>
+        <div class="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ fmtInt(entry.tokens) }} tokens</span>
+          <span class="rounded-full bg-oro/15 px-2.5 py-1 text-oroOscuro">{{ fmtUsd(entry.cost) }}</span>
+          <span class="rounded-full bg-verdeEsm/15 px-2.5 py-1 text-verdeEsm">{{ fmtEnergy(entry.energy) }}</span>
         </div>
 
         <div class="flex items-center justify-end gap-2">
           <button
             class="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-azulCorp"
             title="Ver detalle"
+            aria-label="Ver detalle"
             @click.stop="$emit('select', entry)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
@@ -181,6 +150,7 @@ async function downloadEntry(entry) {
           <button
             class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
             title="Descargar memoria técnica"
+            aria-label="Descargar memoria técnica"
             @click.stop="downloadEntry(entry)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">

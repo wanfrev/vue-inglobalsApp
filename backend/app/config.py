@@ -45,6 +45,36 @@ class Settings(BaseSettings):
     # notificación real (Telegram, correo) queda pendiente para más adelante.
     DAILY_COST_ALERT_USD: float = 5.0
 
+    # --- Métricas de sostenibilidad por consulta (protocolo AOPCCPS+IA, ODS 12
+    # y 13) ---
+    # Los tokens y el costo son MEDIDOS (los reporta la API en cada llamada).
+    # La energía y el CO2e NO se pueden medir desde aquí (el cómputo ocurre en
+    # los servidores del proveedor de IA): se ESTIMAN multiplicando los tokens
+    # por estos coeficientes. Son valores de referencia de orden de magnitud,
+    # no una medición — deben acordarse/validarse con la metodología del
+    # cliente (el White Paper solo habla de consumo "Bajo/Optimizado", sin
+    # fórmula numérica). La UI los rotula siempre como estimación.
+    ENERGY_WH_PER_1K_TOKENS: float = 0.3
+    # Intensidad de carbono de la electricidad, en gCO2e por kWh. ~400 es un
+    # promedio de referencia de red eléctrica global.
+    CO2_G_PER_KWH: float = 400.0
+
+    # Umbrales de referencia del protocolo, contra los que se grafica el
+    # consumo medido de cada loop. Los valores por defecto son los del White
+    # Paper (200 tokens por loop, 500 acumulados) — OJO: eso fue una prueba
+    # piloto sin bibliografía inyectada en el prompt; con RAG el contexto de
+    # entrada por sí solo ya los supera. Se dejan configurables para que el
+    # cliente decida qué umbral es realista (y si aplica a tokens totales o
+    # solo a los de salida).
+    TOKEN_BUDGET_LOOP1: int = 200
+    TOKEN_BUDGET_LOOP2: int = 200
+    TOKEN_BUDGET_TOTAL: int = 500
+
+    # Límite de palabras de la respuesta final (Loop 2, "freno de mano"). El
+    # equivalente aproximado al tope de tokens del protocolo para el texto
+    # visible.
+    ANSWER_MAX_WORDS: int = 200
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     # DATA_DIR es override-able con la variable de entorno DATA_DIR — en
     # Render (o cualquier host con disco persistente) debe apuntar a la ruta

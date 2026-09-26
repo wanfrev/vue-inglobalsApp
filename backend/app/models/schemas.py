@@ -1,23 +1,20 @@
-from datetime import datetime
-from typing import Literal
+import unicodedata
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
-
-
-class CriterionResult(BaseModel):
-    status: Literal["passed", "failed"]
-    detail: str
-    article_ref: str = ""
+from pydantic import BaseModel, field_validator, model_validator
 
 
-class DADResult(BaseModel):
-    is_valid: bool
-    summary: str
-    criteria: dict[str, CriterionResult]
-    corrective_action: str
-    compliance_score: int = Field(ge=0, le=100)
-    question_well_formed: bool = True
-    question_feedback: str = ""
+class _LenientModel(BaseModel):
+    """Los LLM a veces devuelven `null` en un campo opcional en vez de omitirlo.
+    Se descartan esas claves para que apliquen los valores por defecto, en vez
+    de fallar la validación y gastar un reintento (que cuesta tokens/energía)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_nulls(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if v is not None}
+        return data
 
 
 class SourceUsed(BaseModel):
@@ -27,21 +24,86 @@ class SourceUsed(BaseModel):
     score: float = 0.0
 
 
-class StructuringResult(BaseModel):
-    """Salida del Prompt 1 (organizador): la pregunta reformulada con rigor
-    metodológico (a partir de los fragmentos epistemológicos recuperados,
-    categoría "metodologica"), más el tipo de entidad/marco normativo
-    hipotético que infirió por su cuenta (el usuario nunca los elige), y lo
-    que falte por aclarar. Todavía no toca el corpus legal — las fuentes
-    normativas reales (`sources_used`) las recupera el Prompt 2."""
+# ---------------------------------------------------------------------------
+# Prompt 1 / Loop 1 — Filtro filosófico, técnico y epistemológico
+# ---------------------------------------------------------------------------
+
+class VerifiedClaim(_LenientModel):
+    claim: str
+    source: str = ""
+
+
+class DiscardedClaim(_LenientModel):
+    claim: str
+    reason: str = ""
+
+
+class Loop1Result(_LenientModel):
+    """Salida del Loop 1 del protocolo AOPCCPS+IA: la consulta cruda pasa por
+    los tres enfoques (ontológico, fenomenológico, falsabilidad 3/3) contra la
+    bibliografía documentada, y queda un borrador lógico solo con lo
+    verificado. También infiere tipo de entidad y marco normativo (el usuario
+    nunca los elige)."""
 
     in_scope: bool = True
     out_of_scope_reason: str = ""
-    structured_prompt: str = ""
     entity_type: Literal["publica", "privada", "mixta"] = "privada"
     framework: str = ""
+    ontological: str = ""
+    phenomenological: str = ""
+    verified_claims: list[VerifiedClaim] = []
+    discarded_claims: list[DiscardedClaim] = []
+    logical_draft: str = ""
+    loop1_passed: bool = True
     missing_info: list[str] = []
 
+    @field_validator("entity_type", mode="before")
+    @classmethod
+    def _normalize_entity_type(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return "privada"
+        plain = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode().strip().lower()
+        return plain if plain in ("publica", "privada", "mixta") else "privada"
+
+    @model_validator(mode="after")
+    def _draft_required_when_in_scope(self) -> "Loop1Result":
+        # Si el modelo dice que la consulta está en alcance pero no entrega
+        # borrador, la salida no sirve: falla la validación → reintento.
+        if self.in_scope and not self.logical_draft.strip():
+            raise ValueError("logical_draft vacío en una consulta dentro de alcance")
+        return self
+
+
+# ---------------------------------------------------------------------------
+# Prompt 2 / Loop 2 — Ejecución, eco-eficiencia y freno de mano
+# ---------------------------------------------------------------------------
+
+class Loop2Result(_LenientModel):
+    final_answer: str
+    condition_met: bool = True
+
+    @field_validator("final_answer")
+    @classmethod
+    def _answer_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("final_answer vacío")
+        return value
+
+
+class Loop2Output(Loop2Result):
+    """Loop 2 + lo que calcula el servidor sobre la respuesta (no el LLM):
+    palabras, y cuánto se podó respecto del borrador lógico del Loop 1."""
+
+    words: int = 0
+    draft_words: int = 0
+    pruning_ratio: float = 0.0
+    max_words: int = 0
+    within_word_limit: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Métricas de sostenibilidad por consulta (ODS 12 y 13)
+# ---------------------------------------------------------------------------
 
 class UsageInfo(BaseModel):
     """Consumo real de tokens reportado por la API (no estimado por el modelo)
@@ -53,6 +115,38 @@ class UsageInfo(BaseModel):
     estimated_cost_usd: float = 0.0
 
 
+class LoopMetric(BaseModel):
+    name: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    energy_wh: float = 0.0
+
+
+class Sustainability(BaseModel):
+    """Tokens y costo son medidos; energía y CO2e son estimaciones a partir de
+    los coeficientes de configuración (ver ENERGY_WH_PER_1K_TOKENS)."""
+
+    loops: list[LoopMetric] = []
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    cost_per_1k_tokens_usd: float = 0.0
+    energy_wh: float = 0.0
+    co2_g: float = 0.0
+    budget_loop1_tokens: int = 0
+    budget_loop2_tokens: int = 0
+    budget_total_tokens: int = 0
+    energy_wh_per_1k_tokens: float = 0.0
+    co2_g_per_kwh: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# API
+# ---------------------------------------------------------------------------
+
 class SimulateRequest(BaseModel):
     prompt: str
 
@@ -62,18 +156,13 @@ class SimulateResponse(BaseModel):
     created_at: str = ""
     in_scope: bool = True
     out_of_scope_reason: str = ""
-    is_valid: bool = False
-    summary: str = ""
-    criteria: dict[str, CriterionResult] = {}
-    corrective_action: str = ""
-    compliance_score: int = 0
-    structured_prompt: str = ""
     entity_type: str = ""
     framework: str = ""
-    sources_used: list[SourceUsed] = []
     missing_info: list[str] = []
-    question_well_formed: bool = True
-    question_feedback: str = ""
+    sources_used: list[SourceUsed] = []
+    loop1: Loop1Result | None = None
+    loop2: Loop2Output | None = None
+    sustainability: Sustainability | None = None
     usage: UsageInfo = UsageInfo()
     free_queries_used: int = 0
     free_queries_remaining: int = 0
@@ -116,17 +205,10 @@ class SimulationRecord(BaseModel):
     framework: str
     prompt: str
     structured_prompt: str = ""
-    is_valid: bool
-    criteria_cs: str
-    criteria_cv: str
-    criteria_cs_cap: str
-    criteria_gt: str
-    criteria_ni: str
-    compliance_score: int
-    corrective_action: str
-    question_well_formed: bool = True
-    question_feedback: str = ""
+    result_json: str | None = None
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
     estimated_cost_usd: float = 0.0
+    energy_wh: float = 0.0
+    co2_g: float = 0.0

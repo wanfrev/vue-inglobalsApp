@@ -41,22 +41,25 @@ def init_sqlite() -> None:
             prompt TEXT NOT NULL,
             structured_prompt TEXT NOT NULL DEFAULT '',
             result_json TEXT,
-            is_valid INTEGER NOT NULL DEFAULT 0,
-            criteria_cs TEXT NOT NULL DEFAULT 'idle',
-            criteria_cv TEXT NOT NULL DEFAULT 'idle',
-            criteria_cs_cap TEXT NOT NULL DEFAULT 'idle',
-            criteria_gt TEXT NOT NULL DEFAULT 'idle',
-            criteria_ni TEXT NOT NULL DEFAULT 'idle',
-            compliance_score INTEGER NOT NULL DEFAULT 0,
-            corrective_action TEXT NOT NULL DEFAULT '',
-            question_well_formed INTEGER NOT NULL DEFAULT 1,
-            question_feedback TEXT NOT NULL DEFAULT '',
             prompt_tokens INTEGER NOT NULL DEFAULT 0,
             completion_tokens INTEGER NOT NULL DEFAULT 0,
             total_tokens INTEGER NOT NULL DEFAULT 0,
-            estimated_cost_usd REAL NOT NULL DEFAULT 0
+            estimated_cost_usd REAL NOT NULL DEFAULT 0,
+            energy_wh REAL NOT NULL DEFAULT 0,
+            co2_g REAL NOT NULL DEFAULT 0
         )
     """)
+
+    # CREATE TABLE IF NOT EXISTS no altera una tabla que ya existe: una base
+    # creada con el esquema anterior (la ecuación DAD, con columnas
+    # criteria_*/compliance_score que ya no se usan pero siguen ahí con sus
+    # DEFAULT, así que los INSERT nuevos que las omiten funcionan) no tendría
+    # las columnas de energía. Se agregan aquí si faltan.
+    existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(simulations)")}
+    for column in ("energy_wh", "co2_g"):
+        if column not in existing_columns:
+            conn.execute(f"ALTER TABLE simulations ADD COLUMN {column} REAL NOT NULL DEFAULT 0")
+
     conn.commit()
     conn.close()
 
@@ -216,11 +219,9 @@ def insert_simulation(data: dict) -> int:
         """
         INSERT INTO simulations (
             session_token, expediente_id, created_at, entity_type, framework, prompt,
-            structured_prompt, result_json, is_valid, criteria_cs, criteria_cv,
-            criteria_cs_cap, criteria_gt, criteria_ni, compliance_score,
-            corrective_action, question_well_formed, question_feedback,
-            prompt_tokens, completion_tokens, total_tokens, estimated_cost_usd
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            structured_prompt, result_json, prompt_tokens, completion_tokens,
+            total_tokens, estimated_cost_usd, energy_wh, co2_g
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             data["session_token"],
@@ -231,20 +232,12 @@ def insert_simulation(data: dict) -> int:
             data["prompt"],
             data.get("structured_prompt", ""),
             data.get("result_json", ""),
-            data.get("is_valid", 0),
-            data.get("criteria_cs", "idle"),
-            data.get("criteria_cv", "idle"),
-            data.get("criteria_cs_cap", "idle"),
-            data.get("criteria_gt", "idle"),
-            data.get("criteria_ni", "idle"),
-            data.get("compliance_score", 0),
-            data.get("corrective_action", ""),
-            data.get("question_well_formed", 1),
-            data.get("question_feedback", ""),
             data.get("prompt_tokens", 0),
             data.get("completion_tokens", 0),
             data.get("total_tokens", 0),
             data.get("estimated_cost_usd", 0),
+            data.get("energy_wh", 0),
+            data.get("co2_g", 0),
         ),
     )
     conn.commit()

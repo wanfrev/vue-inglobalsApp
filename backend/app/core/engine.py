@@ -11,155 +11,155 @@ from app.config import settings
 from app.core.rag import search_legal_context
 from app.core.web_sources import get_live_web_context
 from app.database import get_today_cost_usd, insert_simulation
-from app.models.schemas import DADResult, StructuringResult, UsageInfo
+from app.models.schemas import (
+    Loop1Result,
+    Loop2Output,
+    Loop2Result,
+    LoopMetric,
+    Sustainability,
+    UsageInfo,
+)
 
 logger = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
-# Prompt 1 — Organizador
+# Protocolo AOPCCPS+IA (White Paper, Martínez 2026): dos consultas maestras de
+# control recursivo, cada una con su loop interno.
 #
-# Recibe la pregunta cruda del usuario + fragmentos METODOLÓGICOS/
-# epistemológicos recuperados por RAG (categoría "metodologica": Chalmers,
-# Bunge, Searle) que le dan la lógica y el orden con que debe estructurar
-# cualquier consulta — no son fuentes legales, son la base de razonamiento
-# metódico. Con esa guía reformula la pregunta cruda de forma técnica y
-# ordenada, e infiere por su cuenta el tipo de entidad y el marco normativo
-# aplicable (el usuario nunca los elige). NO cita artículos ni normas
-# específicas todavía — eso lo hace el Prompt 2, que sí recupera el contexto
-# legal/normativo real. Este módulo tampoco emite ningún veredicto de
-# cumplimiento: solo organiza la pregunta y señala qué falta para responderla
-# bien.
+# Prompt 1 / LOOP 1 — Filtro filosófico, técnico y epistemológico.
+#   Recibe la consulta cruda + la bibliografía documentada recuperada por RAG
+#   (leyes, normas y sitios institucionales) y la somete a los tres enfoques
+#   del protocolo: ontológico, fenomenológico y falsabilidad de Popper (3/3).
+#   Solo lo verificado contra la bibliografía sobrevive al "borrador lógico";
+#   lo que no se puede comprobar se DESCARTA (nunca se rescata con
+#   conocimiento propio del modelo — ese es el mecanismo anti-alucinación).
+#
+# Prompt 2 / LOOP 2 — Ejecución, eco-eficiencia y freno de mano.
+#   Recibe SOLO lo que validó el Loop 1 (no se reenvía toda la bibliografía —
+#   ese es justamente el ahorro de tokens que persigue el protocolo, ODS 12 y
+#   13) y entrega la respuesta final podada: sin saludos ni relleno, dentro de
+#   un límite de palabras.
+#
+# Ojo con las métricas del Loop 2 del paper (consumo energético, tokens
+# usados): NO se le piden al LLM. Un modelo no puede contar sus propios tokens
+# ni medir su energía de forma confiable — se inventaría los números. Las
+# calcula el servidor a partir del campo `usage` que devuelve la API (ver
+# `_build_sustainability`).
 # ---------------------------------------------------------------------------
 
 PROMPT_1_SYSTEM = """
-Eres el Módulo Organizador del Simulador DAD (Documento de Auditoría Digital).
-Tu única función es tomar la consulta cruda de un usuario (auditor, contador
-o responsable de cumplimiento en Venezuela) y reformularla de forma técnica,
-clara y bien ordenada. NO evalúas cumplimiento legal ni das un veredicto, y
-NO citas todavía artículos o normas específicas (eso lo hace el módulo
-siguiente, que sí tiene el contexto legal): tu trabajo es solo de lógica y
-estructura.
+Eres un Auditor Lógico de Alta Eficiencia Computacional. Ejecutas el LOOP 1 del
+protocolo AOPCCPS+IA ("Auditoría Operacional: Protocolo Cognitivo Contable
+Paradigmático Sostenible más Inteligencia Artificial") en el simulador de
+Inglobals. Tu tarea: convertir la consulta cruda de un auditor, contador o
+responsable de cumplimiento en Venezuela en una premisa técnicamente validada,
+usando SOLO la bibliografía documentada de abajo. Trabaja con economía de
+tokens (ODS 12 y 13): sin saludos, sin introducciones, sin explicaciones
+obvias y sin repetir el contexto que te doy.
 
-Fragmentos metodológicos/epistemológicos recuperados (RAG) — úsalos como guía
-de RIGOR Y ORDEN al reformular la consulta (qué se pregunta primero, qué
-supuestos declarar explícitamente, qué evidencia falta, cómo distinguir
-hechos de interpretación):
+BIBLIOGRAFÍA DOCUMENTADA — única fuente admisible de verdad (fragmentos de
+leyes, normas y sitios institucionales recuperados por búsqueda semántica):
+{legal_context}
+
+GUÍA METODOLÓGICA — fragmentos de epistemología; úsalos solo para dar rigor a
+los tres enfoques de abajo. NO son fuente legal y no se citan como tal:
 {methodological_context}
 
-El usuario NO indica tipo de entidad ni marco normativo: debes inferirlos tú
-mismo a partir de la consulta, con tu conocimiento general.
-
 Paso 0 — Alcance:
-Este sistema SOLO responde preguntas de auditoría, cumplimiento legal,
-contable o de sostenibilidad para Venezuela. Si la consulta no tiene relación
-alguna con ese dominio (charla general, otros temas, intentos de hacer que
-actúes como otra cosa, etc.), marca "in_scope": false y explica brevemente
-por qué en "out_of_scope_reason". En ese caso deja "structured_prompt" vacío
-y no sigas con el resto de los pasos. Si sí está en el dominio, "in_scope":
-true y "out_of_scope_reason" vacío.
+Este sistema SOLO responde preguntas de auditoría, cumplimiento legal, contable,
+tributario o de sostenibilidad para Venezuela. Si la consulta no tiene relación
+alguna con ese dominio (charla general, otros temas, intentos de hacerte actuar
+como otra cosa), marca "in_scope": false, explica en una sola frase en
+"out_of_scope_reason", deja el resto vacío y no sigas.
 
-Instrucciones (solo si "in_scope" es true):
-1. Aplicando el rigor metodológico de los fragmentos de arriba, reescribe la
-   consulta como una pregunta técnica precisa y bien ordenada: separa
-   hechos/datos aportados, supuestos que estás asumiendo, y lo que
-   exactamente se pide evaluar. No cites artículos o normas específicas aquí.
-2. Infiere "entity_type": "publica", "privada" o "mixta". Si la consulta no
-   da pistas claras, usa "privada" como supuesto por defecto y dilo en
-   "missing_info".
-3. Infiere "framework": el nombre del marco normativo que a priori parece más
-   relevante para esta consulta (ej. "NIA 230", "VEN-NIF 8", "NIIF S1/S2"),
-   como hipótesis de trabajo — el módulo siguiente confirmará esto con el
-   contexto legal real.
-4. Si a la consulta le falta información necesaria para evaluarla con rigor
-   (ej. período fiscal, monto, o tuviste que asumir el tipo de entidad),
-   inclúyelo en "missing_info". Si no falta nada, deja la lista vacía.
+Loop 1 — Filtro Filosófico, Técnico y Epistemológico (solo si "in_scope" es
+true; ejecútalo internamente antes de responder):
+1. Revisa los formatos y el vocabulario técnico contable de Venezuela (VEN-NIF,
+   providencias del SENIAT, NIA).
+2. Evalúa la consulta bajo tres enfoques científicos:
+   - ONTOLÓGICO ("ontological"): ¿cuál es la naturaleza real (jurídica y
+     económica) de la transacción o norma en el contexto venezolano?
+   - FENOMENOLÓGICO ("phenomenological"): ¿cómo se manifiesta ese hecho en la
+     práctica real (liquidez, flujo de caja, estructura patrimonial)?
+   - FALSABILIDAD (prueba 3/3, Popper): intenta refutar cada afirmación que
+     haría falta para responder. Una afirmación queda VERIFICADA solo si (a)
+     aparece de forma explícita en la BIBLIOGRAFÍA DOCUMENTADA — indica el
+     documento y el artículo/sección en "source"; (b) es coherente con el
+     enfoque ontológico y (c) con el fenomenológico. Si falla cualquiera de las
+     tres, DESCÁRTALA como no verificable o ambigua ("discarded_claims", con
+     la razón). Nunca la rescates con conocimiento propio ni inventes
+     artículos, porcentajes ni plazos.
+3. Condición de salida: si lo verificado pasa el filtro libre de sesgo
+   cognitivo, "loop1_passed": true y redacta "logical_draft": la premisa
+   reconceptualizada, limpia de errores y compuesta solo por afirmaciones
+   verificadas. Si nada relevante pudo verificarse, "loop1_passed": false, en
+   "logical_draft" indica en una frase qué no se pudo verificar y en
+   "missing_info" qué información o fuente falta.
+
+Además infiere tú mismo (el usuario no lo indica):
+- "entity_type": "publica", "privada" o "mixta" (si no hay pistas, "privada" y
+  dilo en "missing_info").
+- "framework": el marco normativo principal de esta consulta (ej.
+  "Providencia SNAT/2015/0049", "VEN-NIF 8", "NIA 230").
+
+Límites de forma (economía de tokens): máximo 6 afirmaciones verificadas y 4
+descartadas, cada una de hasta 35 palabras; "ontological" y "phenomenological"
+de hasta 40 palabras cada uno; "logical_draft" de hasta 120 palabras.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional:
 {{
   "in_scope": true/false,
-  "out_of_scope_reason": "Por qué está fuera de alcance, o vacío si in_scope es true",
-  "structured_prompt": "Consulta reformulada de forma técnica y ordenada (vacío si in_scope es false)",
+  "out_of_scope_reason": "Por qué está fuera de alcance, o vacío",
   "entity_type": "publica|privada|mixta",
-  "framework": "Marco normativo hipotético más relevante para esta consulta",
-  "missing_info": ["Ej. Falta indicar el período fiscal evaluado"]
+  "framework": "Marco normativo principal",
+  "ontological": "Naturaleza real de la transacción o norma",
+  "phenomenological": "Cómo se manifiesta en la práctica",
+  "verified_claims": [{{"claim": "Afirmación verificada", "source": "Documento, art./sección"}}],
+  "discarded_claims": [{{"claim": "Afirmación descartada", "reason": "Por qué no se pudo verificar"}}],
+  "logical_draft": "Premisa reconceptualizada y validada",
+  "loop1_passed": true/false,
+  "missing_info": ["Información o fuente que falta, si aplica"]
 }}
 """
 
-# ---------------------------------------------------------------------------
-# Prompt 2 — Validador + Resultado
-#
-# Recibe la salida del Prompt 1 (pregunta ya estructurada + fuentes + tipo de
-# entidad/marco normativo ya inferidos) y hace dos cosas: (a) valida si la
-# pregunta, ya estructurada, está bien formulada para poder auditarla con
-# rigor, y (b) produce el veredicto DAD de siempre (los 5 criterios completos
-# — no hay selección parcial, el usuario no elige cuáles evaluar). El costo
-# en tokens NO lo calcula el modelo — lo calculamos nosotros a partir del
-# campo `usage` que devuelve la API en cada llamada (ver `_call_deepseek` /
-# `run_simulation`), porque un LLM no puede contar sus propios tokens de
-# forma confiable.
-# ---------------------------------------------------------------------------
-
 PROMPT_2_SYSTEM = """
-Eres el motor central del Simulador DAD (Documento de Auditoría Digital).
-Tu función es actuar como un filtro de cumplimiento legal y contable para Venezuela.
+Eres el módulo de ejecución del protocolo AOPCCPS+IA. Ejecutas el LOOP 2
+(Ejecución, Eco-Eficiencia y Freno de Mano). Resuelve de forma ultra-precisa la
+consulta de abajo basándote ÚNICAMENTE en la información validada por el Loop 1.
+No uses conocimiento propio ni agregues normas, artículos, porcentajes o plazos
+que no estén en las afirmaciones verificadas. Si lo validado no alcanza para
+responder, dilo en una sola frase y di qué falta.
 
-Recibes una consulta YA ORGANIZADA por el módulo anterior (Prompt 1), junto
-con las fuentes legales que ese módulo consideró relevantes y el tipo de
-entidad / marco normativo que ya infirió (el usuario no los elige).
+Consulta del usuario:
+{question}
 
-Consulta organizada:
-{structured_prompt}
+Entidad (inferida): {entity_type} · Marco normativo (inferido): {framework}
 
-Tipo de entidad (inferido): {entity_type}
-Marco normativo (inferido): {framework}
+Premisa lógica validada (Loop 1):
+{logical_draft}
 
-Fuentes consideradas relevantes:
-{sources_used}
+Afirmaciones verificadas, con su fuente:
+{verified_claims}
 
-Información faltante detectada por el organizador (si hay):
+Información faltante detectada en el Loop 1:
 {missing_info}
 
-Contexto legal completo recuperado (RAG):
-{legal_context}
-
-Paso 1 — Validación de la pregunta:
-Evalúa si la consulta organizada tiene la información suficiente para emitir
-un veredicto de cumplimiento serio. Si "missing_info" no está vacío o la
-consulta es ambigua/incompleta, marca "question_well_formed": false y explica
-en "question_feedback" qué le falta al usuario aclarar. Si está completa,
-"question_well_formed": true y "question_feedback" puede ir vacío o con una
-observación menor.
-
-Paso 2 — Ecuación DAD:
-Evalúa la propuesta contra los 5 criterios de la ecuación DAD = Cs + Cv + CS + GT + NI
-(los 5 SIEMPRE se evalúan, no hay selección parcial):
-- Cs (Ciencias Sociales / Juicio Profesional): Capacidad crítica y ética del auditor. ¿La decisión es éticamente defendible?
-- Cv (Contexto Venezolano / Sostenibilidad): Cumplimiento con leyes venezolanas, providencias, ASG/ESG.
-- CS (Capital Social / Estructuración): ¿La propuesta cumple con la estructura documental requerida por el tipo de entidad?
-- GT (Gestión Tecnológica / IA): ¿El proceso es auditable digitalmente? ¿Genera trazabilidad?
-- NI (Normas Internacionales): Cumplimiento con NIA, NIIF S1/S2, VEN-NS 0.
-
-Regla de oro: si la propuesta viola alguna ley o norma, is_valid DEBE ser false.
-Si "question_well_formed" es false, igual debes intentar el mejor veredicto
-posible con lo disponible, pero refléjalo con un compliance_score más bajo si
-la falta de información te impide confirmar cumplimiento.
-Sé estricto y cita los artículos específicos.
+Loop 2 — Freno de mano y poda semántica (ejecútalo internamente antes de
+responder):
+1. Evalúa el peso algorítmico de tu respuesta: cada palabra debe aportar.
+2. Aplica poda estricta: elimina saludos, introducciones ("Con gusto le
+   informo...", "Es importante destacar que..."), explicaciones obvias y
+   repeticiones. Máximo {max_words} palabras. Entrega el resultado técnico
+   directo (puedes usar viñetas cortas que empiecen con "- ") y cita entre
+   paréntesis la norma/artículo de cada dato, usando solo las fuentes de arriba.
+3. Cuando la respuesta sea directa, completa, sin redundancias y esté dentro del
+   límite, "condition_met": true.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional:
 {{
-  "question_well_formed": true/false,
-  "question_feedback": "Qué le falta aclarar al usuario, o vacío si está completa",
-  "is_valid": true/false,
-  "summary": "Resumen ejecutivo del análisis",
-  "criteria": {{
-    "Cs": {{"status": "passed/failed", "detail": "Justificación técnica", "article_ref": "Artículo o norma violada, si aplica"}},
-    "Cv": {{"status": "passed/failed", "detail": "Justificación técnica", "article_ref": "Artículo o norma violada, si aplica"}},
-    "CS": {{"status": "passed/failed", "detail": "Justificación técnica", "article_ref": "Artículo o norma violada, si aplica"}},
-    "GT": {{"status": "passed/failed", "detail": "Justificación técnica", "article_ref": "Artículo o norma violada, si aplica"}},
-    "NI": {{"status": "passed/failed", "detail": "Justificación técnica", "article_ref": "Artículo o norma violada, si aplica"}}
-  }},
-  "corrective_action": "Si is_valid es false, explica qué debe corregir. Si true, cadena vacía.",
-  "compliance_score": 0-100
+  "final_answer": "Respuesta técnica final, podada",
+  "condition_met": true/false
 }}
 """
 
@@ -183,7 +183,9 @@ afirma explícitamente.
 """
 
 
-def _format_legal_context(legal_results: list[dict], empty_default: str = DEFAULT_CONTEXT) -> str:
+def _format_legal_context(
+    legal_results: list[dict], empty_default: str = DEFAULT_CONTEXT, max_chars: int = 500
+) -> str:
     if not legal_results:
         return empty_default
 
@@ -192,7 +194,7 @@ def _format_legal_context(legal_results: list[dict], empty_default: str = DEFAUL
         context_parts.append(
             f"[{i}] {result.get('title', 'Sin título')} ({result.get('category', 'N/A')})\n"
             f"    Score: {result.get('score', 0):.3f}\n"
-            f"    Texto: {result.get('text', '')[:500]}..."
+            f"    Texto: {result.get('text', '')[:max_chars]}..."
         )
     return "\n\n".join(context_parts)
 
@@ -392,136 +394,174 @@ def _sum_usage(a: UsageInfo, b: UsageInfo) -> UsageInfo:
     )
 
 
-def _run_structuring_prompt(raw_prompt: str) -> tuple[StructuringResult, UsageInfo]:
-    """Prompt 1: organiza la consulta guiándose por el enfoque metodológico/
-    epistemológico recuperado (categoría "metodologica"), e infiere tipo de
-    entidad / marco normativo hipotético (el usuario no los elige). Todavía
-    no toca el corpus legal — eso lo hace el Prompt 2."""
+def _words(text: str) -> int:
+    return len(text.split())
+
+
+def _energy_wh(total_tokens: int) -> float:
+    """ESTIMACIÓN de energía (Wh) a partir de tokens — no es una medición, ver
+    ENERGY_WH_PER_1K_TOKENS en config.py."""
+    return (total_tokens / 1000) * settings.ENERGY_WH_PER_1K_TOKENS
+
+
+def _loop_metric(name: str, usage: UsageInfo) -> LoopMetric:
+    return LoopMetric(
+        name=name,
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        cost_usd=usage.estimated_cost_usd,
+        energy_wh=round(_energy_wh(usage.total_tokens), 6),
+    )
+
+
+def _build_sustainability(usage_1: UsageInfo, usage_2: UsageInfo) -> Sustainability:
+    """Métricas de consumo por consulta (ODS 12 y 13). Tokens y costo son los
+    que reporta la API (medidos); energía y CO2e se estiman con los
+    coeficientes de configuración."""
+    total = _sum_usage(usage_1, usage_2)
+    energy_wh = _energy_wh(total.total_tokens)
+    co2_g = (energy_wh / 1000) * settings.CO2_G_PER_KWH
+    cost_per_1k = (total.estimated_cost_usd / total.total_tokens * 1000) if total.total_tokens else 0.0
+    return Sustainability(
+        loops=[_loop_metric("Loop 1", usage_1), _loop_metric("Loop 2", usage_2)],
+        prompt_tokens=total.prompt_tokens,
+        completion_tokens=total.completion_tokens,
+        total_tokens=total.total_tokens,
+        cost_usd=total.estimated_cost_usd,
+        cost_per_1k_tokens_usd=round(cost_per_1k, 6),
+        energy_wh=round(energy_wh, 6),
+        co2_g=round(co2_g, 6),
+        budget_loop1_tokens=settings.TOKEN_BUDGET_LOOP1,
+        budget_loop2_tokens=settings.TOKEN_BUDGET_LOOP2,
+        budget_total_tokens=settings.TOKEN_BUDGET_TOTAL,
+        energy_wh_per_1k_tokens=settings.ENERGY_WH_PER_1K_TOKENS,
+        co2_g_per_kwh=settings.CO2_G_PER_KWH,
+    )
+
+
+def _run_loop1(raw_prompt: str) -> tuple[Loop1Result, UsageInfo, list[dict]]:
+    """Prompt 1 / Loop 1: recupera la bibliografía documentada (RAG sobre los
+    documentos indexados + las webs institucionales consultadas en vivo, ver
+    app/core/web_sources.py) y la guía metodológica, y somete la consulta a
+    los enfoques ontológico, fenomenológico y de falsabilidad. Devuelve
+    también las fuentes recuperadas, para trazabilidad."""
+    legal_results = search_legal_context(
+        raw_prompt, top_k=6, exclude_categories=["metodologica"]
+    )
+    legal_results = legal_results + get_live_web_context()
     methodological_results = search_legal_context(
         raw_prompt, top_k=3, filter_category="metodologica"
     )
-    methodological_context = _format_legal_context(
-        methodological_results, empty_default=DEFAULT_METHODOLOGICAL_CONTEXT
+
+    # 900 caracteres por fragmento (el RAG parte en chunks de 1000): con 500
+    # se perdía la mitad de cada fragmento, y el Loop 1 no podía verificar
+    # (falsabilidad) afirmaciones que estuvieran en la segunda mitad.
+    system_prompt = PROMPT_1_SYSTEM.format(
+        legal_context=_format_legal_context(legal_results, max_chars=900),
+        methodological_context=_format_legal_context(
+            methodological_results,
+            empty_default=DEFAULT_METHODOLOGICAL_CONTEXT,
+            max_chars=400,
+        ),
     )
 
-    system_prompt = PROMPT_1_SYSTEM.format(methodological_context=methodological_context)
-
-    structuring, usage = _call_deepseek(system_prompt, raw_prompt, StructuringResult)
-    return structuring, usage
+    loop1, usage = _call_deepseek(system_prompt, raw_prompt, Loop1Result)
+    return loop1, usage, _sources_from_results(legal_results)
 
 
-def _run_validation_prompt(
-    structuring: StructuringResult,
-) -> tuple[DADResult, UsageInfo, list[dict]]:
-    """Prompt 2: recupera el contexto legal/normativo real (todas las
-    categorías salvo "metodologica" indexadas en FAISS, MÁS las webs
-    institucionales consultadas en vivo — ver app/core/web_sources.py) a
-    partir de la pregunta YA organizada, valida si está bien formulada, y
-    produce el veredicto DAD usando el tipo de entidad/marco que infirió el
-    Prompt 1 como hipótesis de partida. El usuario nunca elige qué fuente
-    consultar: esto corre siempre, para cualquier pregunta en el dominio."""
-    legal_results = search_legal_context(
-        structuring.structured_prompt or "",
-        top_k=8,
-        exclude_categories=["metodologica"],
+def _run_loop2(raw_prompt: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageInfo]:
+    """Prompt 2 / Loop 2: recibe SOLO lo validado por el Loop 1 (no la
+    bibliografía completa) y entrega la respuesta final podada."""
+    verified = (
+        "\n".join(f"- {c.claim} (Fuente: {c.source or 'sin fuente'})" for c in loop1.verified_claims)
+        or "Ninguna afirmación pudo verificarse."
     )
-    live_web_results = get_live_web_context()
-    legal_results = legal_results + live_web_results
-    legal_context = _format_legal_context(legal_results)
-    sources_used = _sources_from_results(legal_results)
-
-    sources_text = (
-        "\n".join(f"- {s['title']} ({s['category']}), score={s['score']:.3f}" for s in sources_used)
-        or "No se recuperó ninguna fuente legal para esta consulta."
-    )
-    missing_text = "\n".join(f"- {m}" for m in structuring.missing_info) or "Ninguna."
+    missing = "\n".join(f"- {m}" for m in loop1.missing_info) or "Ninguna."
 
     system_prompt = PROMPT_2_SYSTEM.format(
-        structured_prompt=structuring.structured_prompt,
-        entity_type=structuring.entity_type,
-        framework=structuring.framework,
-        sources_used=sources_text,
-        missing_info=missing_text,
-        legal_context=legal_context,
+        question=raw_prompt,
+        entity_type=loop1.entity_type,
+        framework=loop1.framework or "no determinado",
+        logical_draft=loop1.logical_draft,
+        verified_claims=verified,
+        missing_info=missing,
+        max_words=settings.ANSWER_MAX_WORDS,
     )
 
-    dad_result, usage = _call_deepseek(system_prompt, structuring.structured_prompt, DADResult)
-    return dad_result, usage, sources_used
+    result, usage = _call_deepseek(system_prompt, raw_prompt, Loop2Result)
+
+    words = _words(result.final_answer)
+    draft_words = _words(loop1.logical_draft)
+    pruning_ratio = max(0.0, 1 - words / draft_words) if draft_words else 0.0
+    output = Loop2Output(
+        final_answer=result.final_answer,
+        condition_met=result.condition_met,
+        words=words,
+        draft_words=draft_words,
+        pruning_ratio=round(pruning_ratio, 4),
+        max_words=settings.ANSWER_MAX_WORDS,
+        within_word_limit=words <= settings.ANSWER_MAX_WORDS,
+    )
+    return output, usage
 
 
 def run_simulation(session_token: str, prompt: str) -> dict:
     """Si la pregunta queda fuera del alcance legal/contable del sistema (lo
-    decide el Prompt 1), se corta ahí: no se llama al Prompt 2, no se crea
+    decide el Loop 1), se corta ahí: no se llama al Loop 2, no se crea
     expediente ni se guarda en el historial, y NO cuenta contra el límite de
     consultas gratis de la sesión (eso lo decide el caller, ver
     app/api/simulate.py, con el `usage` de esta única llamada como dato)."""
-    structuring, usage_1 = _run_structuring_prompt(prompt)
+    loop1, usage_1, sources_used = _run_loop1(prompt)
 
-    if not structuring.in_scope:
+    if not loop1.in_scope:
         return {
             "in_scope": False,
-            "out_of_scope_reason": structuring.out_of_scope_reason
+            "out_of_scope_reason": loop1.out_of_scope_reason
             or "Esta consulta no corresponde al ámbito legal/contable de este sistema.",
             "usage": usage_1.model_dump(),
         }
 
-    dad_result, usage_2, sources_used = _run_validation_prompt(structuring)
+    loop2, usage_2 = _run_loop2(prompt, loop1)
     total_usage = _sum_usage(usage_1, usage_2)
+    sustainability = _build_sustainability(usage_1, usage_2)
 
     expediente_id = f"AUD-{datetime.now(timezone.utc).strftime('%Y')}-{uuid.uuid4().hex[:6].upper()}"
     created_at = datetime.now(timezone.utc).isoformat()
-
-    criteria_map = {k: dad_result.criteria.get(k) for k in ("Cs", "Cv", "CS", "GT", "NI")}
 
     result_payload = {
         "expediente_id": expediente_id,
         "created_at": created_at,
         "in_scope": True,
         "out_of_scope_reason": "",
-        "is_valid": dad_result.is_valid,
-        "summary": dad_result.summary,
-        "criteria": {
-            k: {"status": v.status, "detail": v.detail, "article_ref": v.article_ref}
-            for k, v in dad_result.criteria.items()
-        },
-        "corrective_action": dad_result.corrective_action,
-        "compliance_score": dad_result.compliance_score,
-        "structured_prompt": structuring.structured_prompt,
-        "entity_type": structuring.entity_type,
-        "framework": structuring.framework,
+        "entity_type": loop1.entity_type,
+        "framework": loop1.framework,
+        "missing_info": loop1.missing_info,
         "sources_used": sources_used,
-        "missing_info": structuring.missing_info,
-        "question_well_formed": dad_result.question_well_formed,
-        "question_feedback": dad_result.question_feedback,
+        "loop1": loop1.model_dump(),
+        "loop2": loop2.model_dump(),
+        "sustainability": sustainability.model_dump(),
         "usage": total_usage.model_dump(),
     }
 
-    simulation_data = {
-        "session_token": session_token,
-        "expediente_id": expediente_id,
-        "created_at": created_at,
-        "entity_type": structuring.entity_type,
-        "framework": structuring.framework,
-        "prompt": prompt,
-        "structured_prompt": structuring.structured_prompt,
-        "result_json": json.dumps(result_payload, ensure_ascii=False),
-        "is_valid": 1 if dad_result.is_valid else 0,
-        "criteria_cs": criteria_map["Cs"].status if criteria_map["Cs"] else "idle",
-        "criteria_cv": criteria_map["Cv"].status if criteria_map["Cv"] else "idle",
-        "criteria_cs_cap": criteria_map["CS"].status if criteria_map["CS"] else "idle",
-        "criteria_gt": criteria_map["GT"].status if criteria_map["GT"] else "idle",
-        "criteria_ni": criteria_map["NI"].status if criteria_map["NI"] else "idle",
-        "compliance_score": dad_result.compliance_score,
-        "corrective_action": dad_result.corrective_action,
-        "question_well_formed": 1 if dad_result.question_well_formed else 0,
-        "question_feedback": dad_result.question_feedback,
-        "prompt_tokens": total_usage.prompt_tokens,
-        "completion_tokens": total_usage.completion_tokens,
-        "total_tokens": total_usage.total_tokens,
-        "estimated_cost_usd": total_usage.estimated_cost_usd,
-    }
-
-    insert_simulation(simulation_data)
+    insert_simulation(
+        {
+            "session_token": session_token,
+            "expediente_id": expediente_id,
+            "created_at": created_at,
+            "entity_type": loop1.entity_type,
+            "framework": loop1.framework,
+            "prompt": prompt,
+            "structured_prompt": loop1.logical_draft,
+            "result_json": json.dumps(result_payload, ensure_ascii=False),
+            "prompt_tokens": total_usage.prompt_tokens,
+            "completion_tokens": total_usage.completion_tokens,
+            "total_tokens": total_usage.total_tokens,
+            "estimated_cost_usd": total_usage.estimated_cost_usd,
+            "energy_wh": sustainability.energy_wh,
+            "co2_g": sustainability.co2_g,
+        }
+    )
     _check_daily_cost_alert()
 
     return result_payload
