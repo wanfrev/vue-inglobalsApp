@@ -60,8 +60,9 @@ const pruningPercent = computed(() => Math.round((loop2.value.pruning_ratio || 0
       </div>
     </article>
 
-    <!-- Trazabilidad del Loop 1 -->
-    <details class="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+    <!-- Trazabilidad del Loop 1 — siempre expandida, el cliente pidió no tener
+    que hacer clic para verla completa. -->
+    <details open class="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
       <summary class="cursor-pointer list-none text-xs font-bold text-azulCorp">
         <span class="mr-1 inline-block text-slate-400 transition-transform group-open:rotate-90">▸</span>
         Trazabilidad del Loop 1 <span class="font-normal text-slate-500">— filtro filosófico, técnico y epistemológico</span>
