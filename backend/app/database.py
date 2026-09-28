@@ -72,7 +72,14 @@ def get_embedding_model():
     return _embedding_model
 
 
-def get_faiss_index(dimension: int = 384):
+def _ensure_faiss_loaded(dimension: int = 384) -> None:
+    """Carga el índice y los metadatos desde disco si este proceso worker
+    todavía no lo ha hecho. Con Gunicorn corriendo varios workers, cada uno
+    tiene su propia memoria: si algo llama a get_metadata()/list_documents()
+    sin pasar antes por get_faiss_index(), un worker "frío" (que aún no
+    atendió ninguna búsqueda) devolvía una lista vacía aunque el índice sí
+    existiera en disco — dependía de a qué worker te tocara. Por eso ambas
+    funciones pasan por acá."""
     global _faiss_index
     if _faiss_index is None:
         import faiss
@@ -84,6 +91,10 @@ def get_faiss_index(dimension: int = 384):
                 _faiss_metadata.extend(json.load(f))
         else:
             _faiss_index = faiss.IndexFlatIP(dimension)
+
+
+def get_faiss_index(dimension: int = 384):
+    _ensure_faiss_loaded(dimension)
     return _faiss_index
 
 
@@ -99,6 +110,7 @@ def save_faiss_index() -> None:
 
 
 def get_metadata() -> list[dict]:
+    _ensure_faiss_loaded()
     return _faiss_metadata
 
 
