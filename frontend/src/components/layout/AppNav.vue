@@ -4,7 +4,7 @@ import { currentView, setView } from '../../stores/appStore.js'
 const views = [
   {
     id: 'emulator',
-    label: 'Emulador',
+    label: 'Simulador Sostenible',
     icon: 'M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M10 12h4'
   },
   {

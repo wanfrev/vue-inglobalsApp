@@ -1,4 +1,5 @@
 import json
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +48,43 @@ def load_document_text(file_path: Path) -> str:
     if suffix == ".txt":
         return file_path.read_text(encoding="utf-8")
     raise ValueError(f"Tipo de archivo no soportado para indexar: '{file_path.suffix}'")
+
+
+def extract_attachment_text(filename: str, content: bytes) -> str:
+    """Extrae el texto de un archivo adjunto a UNA consulta puntual del chat
+    (a pedido del cliente) — a diferencia de index_document(), esto NO se
+    guarda ni se indexa en la bibliografía compartida: es contexto efímero
+    que solo se usa para responder esa consulta (ver `_run_loop1` en
+    engine.py). Mismos formatos que la bibliografía (PDF/Word/texto plano),
+    reutilizando load_document_text(). Si el archivo es una imagen escaneada
+    sin texto real, no hay OCR todavía — se informa al usuario en vez de
+    fallar en silencio con un contexto vacío."""
+    suffix = Path(filename).suffix.lower()
+    if suffix not in (".pdf", ".docx", ".txt"):
+        raise ValueError(
+            f"Formato de archivo no soportado: '{suffix or 'desconocido'}'. "
+            "Se aceptan PDF, Word (.docx) o texto plano (.txt)."
+        )
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        text = load_document_text(tmp_path).strip()
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if not text:
+        raise ValueError(
+            "No se pudo extraer texto del archivo — ¿es una imagen escaneada sin texto "
+            "real? Por ahora no se soporta reconocimiento óptico (OCR)."
+        )
+
+    if len(text) > settings.ATTACHMENT_MAX_CHARS:
+        text = text[: settings.ATTACHMENT_MAX_CHARS] + "\n[...documento truncado por longitud...]"
+
+    return text
 
 
 def chunk_text(

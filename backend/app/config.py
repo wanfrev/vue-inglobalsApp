@@ -75,6 +75,18 @@ class Settings(BaseSettings):
     # visible.
     ANSWER_MAX_WORDS: int = 200
 
+    # Adjuntar un archivo a una consulta puntual (no se indexa en la
+    # bibliografía compartida, es contexto efímero solo para esa consulta —
+    # ver extract_attachment_text() en rag.py). Mismos formatos que la
+    # bibliografía: PDF, Word y texto plano.
+    ATTACHMENT_MAX_FILE_SIZE_MB: int = 8
+    # Tope de caracteres del texto extraído que se manda al Loop 1 — un
+    # adjunto completo sin límite podría disparar el costo/tokens de una sola
+    # consulta muy por encima de lo normal. 8000 caracteres cubre un documento
+    # corto/mediano completo (factura, contrato, dictamen) sin descontrolar el
+    # presupuesto; documentos más largos se truncan con una nota visible.
+    ATTACHMENT_MAX_CHARS: int = 8000
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     # DATA_DIR es override-able con la variable de entorno DATA_DIR — en
     # Render (o cualquier host con disco persistente) debe apuntar a la ruta

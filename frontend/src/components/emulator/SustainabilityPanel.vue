@@ -24,14 +24,19 @@ const scaleMax = computed(() => {
 })
 const pct = (value) => `${Math.min(100, (Number(value || 0) / scaleMax.value) * 100)}%`
 
+// Por nombre, no por posición: el paso de reformulación de la consulta (ver
+// engine.py) se agregó como primer ítem de "loops" y no tiene umbral propio
+// del protocolo (solo Loop 1 y Loop 2 lo tienen, ver el White Paper).
+const BUDGET_BY_LOOP_NAME = { 'Loop 1': 'budget_loop1_tokens', 'Loop 2': 'budget_loop2_tokens' }
+
 const tokenRows = computed(() => {
-  const rows = loops.value.map((l, i) => ({
+  const rows = loops.value.map((l) => ({
     key: l.name,
     label: l.name,
     prompt: l.prompt_tokens,
     completion: l.completion_tokens,
     total: l.total_tokens,
-    budget: i === 0 ? s.value.budget_loop1_tokens : s.value.budget_loop2_tokens,
+    budget: BUDGET_BY_LOOP_NAME[l.name] ? s.value[BUDGET_BY_LOOP_NAME[l.name]] : 0,
   }))
   rows.push({
     key: 'total',

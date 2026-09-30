@@ -7,8 +7,51 @@ import { promptText, setSession, simulationStatus, updateSessionStatus } from '.
 const messages = ref([])
 const isProcessing = ref(false)
 
+// Adjuntar un archivo a la consulta (a pedido del cliente): la IA lo usa
+// como fuente admisible además de la bibliografía, solo para ESTA consulta
+// (no se indexa). Mismos límites que valida el backend (ver
+// ATTACHMENT_MAX_FILE_SIZE_MB en config.py) — se replican acá para avisar
+// de inmediato sin esperar el viaje al servidor.
+const ATTACHMENT_ACCEPT = '.pdf,.docx,.txt'
+const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
+const attachedFile = ref(null)
+const attachmentError = ref('')
+const fileInput = ref(null)
+
 function canSimulate() {
   return promptText.value.trim().length > 0 && !isProcessing.value
+}
+
+function openFilePicker() {
+  fileInput.value?.click()
+}
+
+function onFileSelected(event) {
+  const file = event.target.files?.[0]
+  event.target.value = '' // permite volver a elegir el mismo archivo después de quitarlo
+  if (!file) return
+
+  attachmentError.value = ''
+  const ext = `.${file.name.split('.').pop()?.toLowerCase() || ''}`
+  if (!ATTACHMENT_ACCEPT.split(',').includes(ext)) {
+    attachmentError.value = 'El adjunto debe ser PDF, Word (.docx) o texto (.txt).'
+    return
+  }
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    attachmentError.value = 'El archivo adjunto supera el límite de 8 MB.'
+    return
+  }
+  attachedFile.value = file
+}
+
+function removeAttachment() {
+  attachedFile.value = null
+  attachmentError.value = ''
+}
+
+function fmtFileSize(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 // Si el token quedó inválido o nunca se guardó (ver el fix de getToken() en
@@ -16,14 +59,14 @@ function canSimulate() {
 // usuario: pedimos una sesión nueva y reintentamos la MISMA consulta una vez
 // — igual que App.vue hace al cargar la página, pero también aquí en medio
 // del chat.
-async function simulateWithRetry(prompt) {
+async function simulateWithRetry(prompt, file) {
   try {
-    return await simulate({ prompt })
+    return await simulate({ prompt, file })
   } catch (error) {
     if (error.status !== 401) throw error
     const session = await startSession()
     setSession(session)
-    return await simulate({ prompt })
+    return await simulate({ prompt, file })
   }
 }
 
@@ -31,15 +74,18 @@ async function send() {
   if (!canSimulate()) return
 
   const text = promptText.value
+  const file = attachedFile.value
 
   isProcessing.value = true
   simulationStatus.value = 'processing'
 
-  messages.value.push({ role: 'user', text })
+  messages.value.push({ role: 'user', text, fileName: file?.name || '' })
   promptText.value = ''
+  attachedFile.value = null
+  attachmentError.value = ''
 
   try {
-    const result = await simulateWithRetry(text)
+    const result = await simulateWithRetry(text, file)
 
     updateSessionStatus(result)
 
@@ -100,6 +146,12 @@ async function send() {
           <div class="min-w-0 flex-1 break-words">
             <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-oroOscuro">Consulta</p>
             <p class="text-sm text-azulCorp leading-relaxed">{{ msg.text }}</p>
+            <div v-if="msg.fileName" class="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-oro/30 bg-white/70 px-2 py-1 text-[11px] font-medium text-oroOscuro">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 shrink-0">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+              <span class="truncate">{{ msg.fileName }}</span>
+            </div>
           </div>
         </div>
 
@@ -149,7 +201,43 @@ async function send() {
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
       <div class="mx-auto w-full max-w-4xl">
+        <p v-if="attachmentError" class="mb-2 text-xs font-medium text-violetaIA">{{ attachmentError }}</p>
+
+        <!-- Chip del archivo adjunto, antes de enviar -->
+        <div v-if="attachedFile" class="mb-2 inline-flex max-w-full items-center gap-2 rounded-xl border border-oro/30 bg-oro/5 px-3 py-1.5 text-xs font-medium text-oroOscuro">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 shrink-0">
+            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+          <span class="truncate">{{ attachedFile.name }}</span>
+          <span class="shrink-0 text-oroOscuro/60">{{ fmtFileSize(attachedFile.size) }}</span>
+          <button
+            @click="removeAttachment"
+            aria-label="Quitar archivo adjunto"
+            class="ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-oroOscuro/70 hover:bg-oro/20 hover:text-oroOscuro"
+          >×</button>
+        </div>
+
         <div class="flex min-w-0 items-end gap-1.5 rounded-2xl border border-slate-200 bg-slate-50/70 px-2 py-2 transition-all duration-200 hover:border-slate-300 hover:bg-white focus-within:border-oro/60 focus-within:bg-white focus-within:shadow-[0_8px_24px_rgba(15,23,42,0.08)] sm:gap-2 sm:px-4">
+          <input
+            ref="fileInput"
+            type="file"
+            :accept="ATTACHMENT_ACCEPT"
+            class="hidden"
+            @change="onFileSelected"
+          />
+          <button
+            @click="openFilePicker"
+            type="button"
+            aria-label="Adjuntar archivo"
+            title="Adjuntar archivo (PDF, Word o texto)"
+            :disabled="isProcessing"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-200/60 hover:text-azulCorp disabled:opacity-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          </button>
+
           <textarea
             v-model="promptText"
             rows="1"

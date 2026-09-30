@@ -25,6 +25,21 @@ class SourceUsed(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Paso 0 — Reformulación de la consulta (previo al Loop 1)
+# ---------------------------------------------------------------------------
+
+class RefinedQuery(_LenientModel):
+    """No es parte del Loop 1/Loop 2 del White Paper: se agregó a pedido del
+    cliente. Antes de buscar en la bibliografía, la IA convierte la consulta
+    cruda del usuario en una pregunta más precisa y técnica — esa es la que
+    se usa para la búsqueda RAG y para el resto del protocolo, no la
+    original. Si este paso falla, el motor sigue con la consulta cruda tal
+    cual (ver `_reformulate_query` en engine.py)."""
+
+    refined_question: str = ""
+
+
+# ---------------------------------------------------------------------------
 # Prompt 1 / Loop 1 — Filtro filosófico, técnico y epistemológico
 # ---------------------------------------------------------------------------
 
@@ -147,15 +162,13 @@ class Sustainability(BaseModel):
 # API
 # ---------------------------------------------------------------------------
 
-class SimulateRequest(BaseModel):
-    prompt: str
-
-
 class SimulateResponse(BaseModel):
     expediente_id: str = ""
     created_at: str = ""
     in_scope: bool = True
     out_of_scope_reason: str = ""
+    refined_question: str = ""
+    attached_filename: str = ""
     entity_type: str = ""
     framework: str = ""
     missing_info: list[str] = []

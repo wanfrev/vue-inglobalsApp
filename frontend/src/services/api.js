@@ -76,10 +76,18 @@ export function getSessionStatus() {
   return request('/api/v1/session/me')
 }
 
-export function simulate({ prompt }) {
+// El endpoint pasó de JSON a multipart/form-data para poder mandar el
+// archivo adjunto opcional (ver ATTACHMENT_MAX_FILE_SIZE_MB en el backend);
+// se manda como FormData siempre, con o sin archivo, para tener un solo
+// camino — request() ya detecta FormData y no le pisa el Content-Type
+// (el navegador pone el boundary del multipart automáticamente).
+export function simulate({ prompt, file }) {
+  const formData = new FormData()
+  formData.append('prompt', prompt)
+  if (file) formData.append('file', file)
   return request('/api/v1/simulate', {
     method: 'POST',
-    body: JSON.stringify({ prompt }),
+    body: formData,
   })
 }
 

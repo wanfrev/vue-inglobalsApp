@@ -16,6 +16,7 @@ from app.models.schemas import (
     Loop2Output,
     Loop2Result,
     LoopMetric,
+    RefinedQuery,
     Sustainability,
     UsageInfo,
 )
@@ -46,7 +47,43 @@ logger = logging.getLogger(__name__)
 # ni medir su energía de forma confiable — se inventaría los números. Las
 # calcula el servidor a partir del campo `usage` que devuelve la API (ver
 # `_build_sustainability`).
+#
+# Paso 0 — Reformulación de la consulta (agregado a pedido del cliente, no es
+# parte del Loop 1/Loop 2 del paper).
+#   Antes de buscar en la bibliografía, la IA convierte la consulta cruda del
+#   usuario (a veces ambigua o mal planteada) en una pregunta más precisa y
+#   técnica. Esa pregunta reformulada —no la original— es la que se usa para
+#   la búsqueda RAG y para el resto del protocolo, así una consulta vaga
+#   tiene más chance de encontrar la bibliografía correcta. Se muestra en la
+#   respuesta para que el auditor vea qué entendió la IA. Si este paso falla
+#   (proveedor caído), se sigue con la consulta cruda tal cual — nunca
+#   bloquea la simulación completa por esto.
 # ---------------------------------------------------------------------------
+
+PROMPT_0_SYSTEM = """
+Eres el módulo de reformulación de consultas del simulador de Inglobals. Tu
+única tarea: reescribir la consulta cruda de un auditor, contador o
+responsable de cumplimiento en Venezuela como el planteamiento técnico y
+preciso que un especialista habría formulado — no lo que escribió alguien de
+forma coloquial o ambigua.
+
+Reglas estrictas:
+- NO respondas la pregunta. NO agregues normas, porcentajes, plazos ni datos
+  que el usuario no mencionó.
+- Preserva la intención original: no cambies de tema ni asumas un caso
+  distinto al que se consulta.
+- Si la consulta ya es precisa y técnica, devuélvela casi igual (solo ajustes
+  menores de redacción).
+- Si es vaga, coloquial o ambigua, precísala: nombra el trámite, norma o
+  concepto contable/tributario/de auditoría al que probablemente se refiere,
+  sin inventar hechos nuevos.
+- Máximo 40 palabras. Sin saludos ni explicaciones.
+
+Responde ÚNICAMENTE con este JSON, sin texto adicional:
+{
+  "refined_question": "La pregunta reformulada"
+}
+"""
 
 PROMPT_1_SYSTEM = """
 Eres un Auditor Lógico de Alta Eficiencia Computacional. Ejecutas el LOOP 1 del
@@ -58,9 +95,14 @@ usando SOLO la bibliografía documentada de abajo. Trabaja con economía de
 tokens (ODS 12 y 13): sin saludos, sin introducciones, sin explicaciones
 obvias y sin repetir el contexto que te doy.
 
-BIBLIOGRAFÍA DOCUMENTADA — única fuente admisible de verdad (fragmentos de
-leyes, normas y sitios institucionales recuperados por búsqueda semántica):
+BIBLIOGRAFÍA DOCUMENTADA — fuente admisible de verdad (fragmentos de leyes,
+normas y sitios institucionales recuperados por búsqueda semántica):
 {legal_context}
+
+DOCUMENTO ADJUNTO POR EL USUARIO A ESTA CONSULTA — también es fuente
+admisible de verdad, igual que la bibliografía de arriba (además de indicar
+el artículo/sección cuando aplique, cita el nombre de archivo en "source"):
+{attached_context}
 
 GUÍA METODOLÓGICA — fragmentos de epistemología; úsalos solo para dar rigor a
 los tres enfoques de abajo. NO son fuente legal y no se citan como tal:
@@ -84,8 +126,9 @@ true; ejecútalo internamente antes de responder):
      práctica real (liquidez, flujo de caja, estructura patrimonial)?
    - FALSABILIDAD (prueba 3/3, Popper): intenta refutar cada afirmación que
      haría falta para responder. Una afirmación queda VERIFICADA solo si (a)
-     aparece de forma explícita en la BIBLIOGRAFÍA DOCUMENTADA — indica el
-     documento y el artículo/sección en "source"; (b) es coherente con el
+     aparece de forma explícita en la BIBLIOGRAFÍA DOCUMENTADA o en el
+     DOCUMENTO ADJUNTO POR EL USUARIO — indica el documento (o el archivo
+     adjunto) y el artículo/sección en "source"; (b) es coherente con el
      enfoque ontológico y (c) con el fenomenológico. Si falla cualquiera de las
      tres, DESCÁRTALA como no verificable o ambigua ("discarded_claims", con
      la razón). Nunca la rescates con conocimiento propio ni inventes
@@ -181,6 +224,15 @@ enfoque de rigor científico/epistemológico básico: distingue datos objetivos,
 supuestos asumidos e interpretación; no des por sentado lo que la consulta no
 afirma explícitamente.
 """
+
+
+DEFAULT_ATTACHED_CONTEXT = "El usuario no adjuntó ningún documento a esta consulta."
+
+
+def _format_attached_context(attached_text: str, attached_filename: str) -> str:
+    if not attached_text.strip():
+        return DEFAULT_ATTACHED_CONTEXT
+    return f"[Archivo: {attached_filename or 'documento adjunto'}]\n{attached_text}"
 
 
 def _format_legal_context(
@@ -394,6 +446,13 @@ def _sum_usage(a: UsageInfo, b: UsageInfo) -> UsageInfo:
     )
 
 
+def _sum_usage_all(*usages: UsageInfo) -> UsageInfo:
+    total = UsageInfo()
+    for u in usages:
+        total = _sum_usage(total, u)
+    return total
+
+
 def _words(text: str) -> int:
     return len(text.split())
 
@@ -415,16 +474,22 @@ def _loop_metric(name: str, usage: UsageInfo) -> LoopMetric:
     )
 
 
-def _build_sustainability(usage_1: UsageInfo, usage_2: UsageInfo) -> Sustainability:
-    """Métricas de consumo por consulta (ODS 12 y 13). Tokens y costo son los
-    que reporta la API (medidos); energía y CO2e se estiman con los
-    coeficientes de configuración."""
-    total = _sum_usage(usage_1, usage_2)
+def _build_sustainability(usage_0: UsageInfo, usage_1: UsageInfo, usage_2: UsageInfo) -> Sustainability:
+    """Métricas de consumo por consulta (ODS 12 y 13), incluyendo el paso de
+    reformulación (usage_0) para que el total mostrado sea el consumo real de
+    la consulta completa, no solo el de los dos loops del paper. Tokens y
+    costo son los que reporta la API (medidos); energía y CO2e se estiman con
+    los coeficientes de configuración."""
+    total = _sum_usage_all(usage_0, usage_1, usage_2)
     energy_wh = _energy_wh(total.total_tokens)
     co2_g = (energy_wh / 1000) * settings.CO2_G_PER_KWH
     cost_per_1k = (total.estimated_cost_usd / total.total_tokens * 1000) if total.total_tokens else 0.0
     return Sustainability(
-        loops=[_loop_metric("Loop 1", usage_1), _loop_metric("Loop 2", usage_2)],
+        loops=[
+            _loop_metric("Reformulación", usage_0),
+            _loop_metric("Loop 1", usage_1),
+            _loop_metric("Loop 2", usage_2),
+        ],
         prompt_tokens=total.prompt_tokens,
         completion_tokens=total.completion_tokens,
         total_tokens=total.total_tokens,
@@ -440,18 +505,46 @@ def _build_sustainability(usage_1: UsageInfo, usage_2: UsageInfo) -> Sustainabil
     )
 
 
-def _run_loop1(raw_prompt: str) -> tuple[Loop1Result, UsageInfo, list[dict]]:
-    """Prompt 1 / Loop 1: recupera la bibliografía documentada (RAG sobre los
-    documentos indexados + las webs institucionales consultadas en vivo, ver
-    app/core/web_sources.py) y la guía metodológica, y somete la consulta a
-    los enfoques ontológico, fenomenológico y de falsabilidad. Devuelve
-    también las fuentes recuperadas, para trazabilidad."""
+def _reformulate_query(raw_prompt: str) -> tuple[str, UsageInfo]:
+    """Paso 0 (previo al Loop 1, no forma parte del Loop 1/Loop 2 del paper):
+    la IA reformula la consulta cruda en una pregunta más precisa y técnica.
+    Esa es la que se usa para buscar en la bibliografía y para el resto del
+    protocolo. Si este paso falla (proveedores caídos, JSON inválido tras los
+    reintentos de _call_deepseek), no debe tumbar la simulación completa: se
+    sigue con la consulta cruda tal cual, igual que antes de tener este paso."""
+    try:
+        refined, usage = _call_deepseek(PROMPT_0_SYSTEM, raw_prompt, RefinedQuery)
+        question = refined.refined_question.strip() or raw_prompt
+        return question, usage
+    except Exception:
+        logger.warning("No se pudo reformular la consulta, se usa la original", exc_info=True)
+        return raw_prompt, UsageInfo()
+
+
+def _run_loop1(
+    raw_prompt: str, attached_text: str = "", attached_filename: str = ""
+) -> tuple[str, Loop1Result, UsageInfo, UsageInfo, list[dict]]:
+    """Paso 0 + Prompt 1 / Loop 1: primero reformula la consulta cruda en una
+    pregunta más precisa (ver `_reformulate_query`) y con ESA busca la
+    bibliografía documentada (RAG sobre los documentos indexados + las webs
+    institucionales consultadas en vivo, ver app/core/web_sources.py) y la
+    guía metodológica. Si el usuario adjuntó un archivo a esta consulta
+    puntual (ya extraído a texto por la capa de API, ver
+    app/core/rag.py::extract_attachment_text), se agrega como fuente
+    admisible adicional — NO se indexa en la bibliografía compartida, es
+    contexto efímero solo para esta consulta. Luego somete la consulta a los
+    enfoques ontológico, fenomenológico y de falsabilidad. Devuelve la
+    pregunta reformulada, el resultado del Loop 1, el uso de tokens de cada
+    paso por separado (para que el panel de consumo los muestre desglosados)
+    y las fuentes recuperadas, para trazabilidad."""
+    refined_question, usage_0 = _reformulate_query(raw_prompt)
+
     legal_results = search_legal_context(
-        raw_prompt, top_k=6, exclude_categories=["metodologica"]
+        refined_question, top_k=6, exclude_categories=["metodologica"]
     )
     legal_results = legal_results + get_live_web_context()
     methodological_results = search_legal_context(
-        raw_prompt, top_k=3, filter_category="metodologica"
+        refined_question, top_k=3, filter_category="metodologica"
     )
 
     # 900 caracteres por fragmento (el RAG parte en chunks de 1000): con 500
@@ -464,15 +557,32 @@ def _run_loop1(raw_prompt: str) -> tuple[Loop1Result, UsageInfo, list[dict]]:
             empty_default=DEFAULT_METHODOLOGICAL_CONTEXT,
             max_chars=400,
         ),
+        attached_context=_format_attached_context(attached_text, attached_filename),
+    )
+    user_prompt = (
+        f"Consulta original del usuario: {raw_prompt}\n"
+        f"Pregunta reformulada (más precisa — úsala como base de tu análisis): {refined_question}"
     )
 
-    loop1, usage = _call_deepseek(system_prompt, raw_prompt, Loop1Result)
-    return loop1, usage, _sources_from_results(legal_results)
+    loop1, usage_1 = _call_deepseek(system_prompt, user_prompt, Loop1Result)
+
+    sources = _sources_from_results(legal_results)
+    if attached_text.strip():
+        sources.append(
+            {
+                "title": attached_filename or "Documento adjunto",
+                "category": "adjunto",
+                "framework": "",
+                "score": 1.0,
+            }
+        )
+    return refined_question, loop1, usage_0, usage_1, sources
 
 
-def _run_loop2(raw_prompt: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageInfo]:
+def _run_loop2(refined_question: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageInfo]:
     """Prompt 2 / Loop 2: recibe SOLO lo validado por el Loop 1 (no la
-    bibliografía completa) y entrega la respuesta final podada."""
+    bibliografía completa) y entrega la respuesta final podada. Responde a la
+    pregunta ya reformulada (más precisa), no a la consulta cruda original."""
     verified = (
         "\n".join(f"- {c.claim} (Fuente: {c.source or 'sin fuente'})" for c in loop1.verified_claims)
         or "Ninguna afirmación pudo verificarse."
@@ -480,7 +590,7 @@ def _run_loop2(raw_prompt: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageI
     missing = "\n".join(f"- {m}" for m in loop1.missing_info) or "Ninguna."
 
     system_prompt = PROMPT_2_SYSTEM.format(
-        question=raw_prompt,
+        question=refined_question,
         entity_type=loop1.entity_type,
         framework=loop1.framework or "no determinado",
         logical_draft=loop1.logical_draft,
@@ -489,7 +599,7 @@ def _run_loop2(raw_prompt: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageI
         max_words=settings.ANSWER_MAX_WORDS,
     )
 
-    result, usage = _call_deepseek(system_prompt, raw_prompt, Loop2Result)
+    result, usage = _call_deepseek(system_prompt, refined_question, Loop2Result)
 
     words = _words(result.final_answer)
     draft_words = _words(loop1.logical_draft)
@@ -506,25 +616,34 @@ def _run_loop2(raw_prompt: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageI
     return output, usage
 
 
-def run_simulation(session_token: str, prompt: str) -> dict:
+def run_simulation(
+    session_token: str, prompt: str, attached_text: str = "", attached_filename: str = ""
+) -> dict:
     """Si la pregunta queda fuera del alcance legal/contable del sistema (lo
     decide el Loop 1), se corta ahí: no se llama al Loop 2, no se crea
     expediente ni se guarda en el historial, y NO cuenta contra el límite de
     consultas gratis de la sesión (eso lo decide el caller, ver
-    app/api/simulate.py, con el `usage` de esta única llamada como dato)."""
-    loop1, usage_1, sources_used = _run_loop1(prompt)
+    app/api/simulate.py, con el `usage` de esta única llamada como dato).
+    `attached_text`/`attached_filename`: archivo opcional adjuntado a ESTA
+    consulta puntual (ya extraído a texto por la capa de API) — no se indexa
+    en la bibliografía compartida."""
+    refined_question, loop1, usage_0, usage_1, sources_used = _run_loop1(
+        prompt, attached_text=attached_text, attached_filename=attached_filename
+    )
 
     if not loop1.in_scope:
         return {
             "in_scope": False,
             "out_of_scope_reason": loop1.out_of_scope_reason
             or "Esta consulta no corresponde al ámbito legal/contable de este sistema.",
-            "usage": usage_1.model_dump(),
+            "refined_question": refined_question,
+            "attached_filename": attached_filename,
+            "usage": _sum_usage(usage_0, usage_1).model_dump(),
         }
 
-    loop2, usage_2 = _run_loop2(prompt, loop1)
-    total_usage = _sum_usage(usage_1, usage_2)
-    sustainability = _build_sustainability(usage_1, usage_2)
+    loop2, usage_2 = _run_loop2(refined_question, loop1)
+    total_usage = _sum_usage_all(usage_0, usage_1, usage_2)
+    sustainability = _build_sustainability(usage_0, usage_1, usage_2)
 
     expediente_id = f"AUD-{datetime.now(timezone.utc).strftime('%Y')}-{uuid.uuid4().hex[:6].upper()}"
     created_at = datetime.now(timezone.utc).isoformat()
@@ -534,6 +653,8 @@ def run_simulation(session_token: str, prompt: str) -> dict:
         "created_at": created_at,
         "in_scope": True,
         "out_of_scope_reason": "",
+        "refined_question": refined_question,
+        "attached_filename": attached_filename,
         "entity_type": loop1.entity_type,
         "framework": loop1.framework,
         "missing_info": loop1.missing_info,

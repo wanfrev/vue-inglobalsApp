@@ -21,9 +21,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'logo.png'],
       manifest: {
-        name: 'Inglobals — DAD Dashboard',
+        name: 'Inglobals — Simulador Sostenible',
         short_name: 'Inglobals',
-        description: 'Auditoría inteligente para un futuro sostenible. Tablero de comandos DAD.',
+        description: 'Auditoría inteligente para un futuro sostenible.',
         // El manifest de PWA necesita el scope/start_url explícitos cuando
         // la app no vive en la raíz del origen.
         scope: '/simulador/',

@@ -22,6 +22,17 @@ const pruningPercent = computed(() => Math.round((loop2.value.pruning_ratio || 0
 
 <template>
   <div class="space-y-3">
+    <!-- Paso 0: la IA reformula la consulta cruda en una pregunta más precisa
+    antes de buscar en la bibliografía (no es parte del Loop 1/Loop 2 del
+    paper, se agregó a pedido del cliente). -->
+    <div
+      v-if="result.refined_question"
+      class="rounded-2xl border border-azulCorp/15 bg-azulCorp/5 px-4 py-3 text-xs text-azulCorp"
+    >
+      <span class="text-[10px] font-bold uppercase tracking-wide text-azulCorp/70">Pregunta interpretada por la IA</span>
+      <div class="mt-1 break-words leading-relaxed">{{ result.refined_question }}</div>
+    </div>
+
     <div
       v-if="loop1.loop1_passed === false"
       class="rounded-2xl border border-oro/40 bg-oro/5 px-4 py-3 text-xs font-medium text-oroOscuro"
