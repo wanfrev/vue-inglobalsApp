@@ -464,13 +464,15 @@ def _energy_wh(total_tokens: int) -> float:
 
 
 def _loop_metric(name: str, usage: UsageInfo) -> LoopMetric:
+    energy_wh = _energy_wh(usage.total_tokens)
     return LoopMetric(
         name=name,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
         total_tokens=usage.total_tokens,
         cost_usd=usage.estimated_cost_usd,
-        energy_wh=round(_energy_wh(usage.total_tokens), 6),
+        energy_wh=round(energy_wh, 6),
+        co2_g=round((energy_wh / 1000) * settings.CO2_G_PER_KWH, 6),
     )
 
 

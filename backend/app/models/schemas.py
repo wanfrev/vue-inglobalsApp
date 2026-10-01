@@ -137,6 +137,7 @@ class LoopMetric(BaseModel):
     total_tokens: int = 0
     cost_usd: float = 0.0
     energy_wh: float = 0.0
+    co2_g: float = 0.0
 
 
 class Sustainability(BaseModel):

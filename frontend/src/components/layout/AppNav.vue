@@ -1,11 +1,20 @@
 <script setup>
 import { currentView, setView } from '../../stores/appStore.js'
 
+// BASE_URL (ver vite.config.js: base: '/simulador/') hay que anteponerlo a
+// mano a los assets de /public referenciados como string — a diferencia de
+// un <img src="./x.png"> importado, Vite NO reescribe un string literal
+// "/x.png" en el build ni en dev. Sin esto, la imagen da 404 (ya pasaba con
+// el logo del header, /logo.png — se corrigió también de paso).
+const BASE = import.meta.env.BASE_URL
+
 const views = [
   {
     id: 'emulator',
-    label: 'Simulador Sostenible',
-    icon: 'M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M10 12h4'
+    label: 'Simulador Sostenible (IA)',
+    // Logo IAaS que pidió el cliente (fondo quitado) en vez del ícono
+    // genérico de líneas — ver iaas-logo.png en frontend/public.
+    image: `${BASE}iaas-logo.png`,
   },
   {
     id: 'history',
@@ -30,7 +39,14 @@ const views = [
             : 'text-slate-500 hover:bg-slate-100 hover:text-azulCorp'
         "
       >
+        <img
+          v-if="view.image"
+          :src="view.image"
+          alt=""
+          class="h-5 w-5 shrink-0 object-contain transition-transform group-hover:scale-105 sm:h-6 sm:w-6"
+        />
         <svg
+          v-else
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="none"

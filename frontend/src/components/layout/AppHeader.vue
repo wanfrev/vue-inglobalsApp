@@ -1,5 +1,9 @@
 <script setup>
 import { sessionInfo } from '../../stores/appStore.js'
+
+// BASE_URL (ver vite.config.js: base: '/simulador/') — un <img src="/logo.png">
+// literal da 404 (Vite no reescribe strings, solo imports), estaba roto.
+const logoUrl = `${import.meta.env.BASE_URL}logo.png`
 </script>
 
 <template>
@@ -9,7 +13,7 @@ import { sessionInfo } from '../../stores/appStore.js'
       <div class="flex min-w-0 shrink-0 items-center gap-3">
         <a href="https://inglobals.com" target="_blank" rel="noreferrer" class="group flex items-center gap-3">
         <img
-          src="/logo.png"
+          :src="logoUrl"
           alt="Inglobals logo"
           class="h-8 w-auto shrink-0 transition-transform group-hover:scale-105"
         />
