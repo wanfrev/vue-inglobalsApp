@@ -26,26 +26,17 @@ const logoUrl = `${import.meta.env.BASE_URL}logo.png`
         </a>
       </div>
 
+      <!-- Sin límite de consultas (a pedido del cliente): ya no se muestra un
+      contador de "consultas gratis restantes" — sería engañoso, porque no
+      existe un tope contra el cual contar. Si una sesión quedó marcada como
+      pagada (is_paid, ver database.py) igual se lo hacemos saber. -->
       <div class="flex min-w-0 items-center gap-2 sm:gap-3">
-        <template v-if="sessionInfo">
-          <span
-            v-if="sessionInfo.is_paid"
-            class="whitespace-nowrap rounded-full bg-verdeEsm/15 px-2.5 py-1.5 text-xs font-semibold text-verdeEsm sm:px-3"
-          >
-            Cuenta activa
-          </span>
-          <span
-            v-else
-            class="whitespace-nowrap rounded-full bg-oro/15 px-2.5 py-1.5 text-xs font-semibold text-oro sm:px-3"
-          >
-            <!-- Texto corto en pantallas muy angostas (<375px, ej. iPhone SE):
-            "1 consultas gratis restantes" no cabe junto al logo y antes se
-            encimaba con él. Tailwind v4 no trae un breakpoint "xs" por
-            defecto, así que usamos un variant arbitrario. -->
-            <span class="min-[375px]:hidden">{{ sessionInfo.free_queries_remaining }} gratis</span>
-            <span class="hidden min-[375px]:inline">{{ sessionInfo.free_queries_remaining }} consultas gratis restantes</span>
-          </span>
-        </template>
+        <span
+          v-if="sessionInfo?.is_paid"
+          class="whitespace-nowrap rounded-full bg-verdeEsm/15 px-2.5 py-1.5 text-xs font-semibold text-verdeEsm sm:px-3"
+        >
+          Cuenta activa
+        </span>
       </div>
     </div>
   </header>

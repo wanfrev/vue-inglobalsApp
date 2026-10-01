@@ -178,8 +178,9 @@ class SimulateResponse(BaseModel):
     loop2: Loop2Output | None = None
     sustainability: Sustainability | None = None
     usage: UsageInfo = UsageInfo()
+    # Sin límite de consultas (a pedido del cliente) — "free_queries_used" ya
+    # no se compara contra ningún tope, queda solo como contador informativo.
     free_queries_used: int = 0
-    free_queries_remaining: int = 0
     is_paid: bool = False
 
 
@@ -188,13 +189,11 @@ class SessionResponse(BaseModel):
 
     token: str
     free_queries_used: int
-    free_queries_remaining: int
     is_paid: bool
 
 
 class SessionStatus(BaseModel):
     free_queries_used: int
-    free_queries_remaining: int
     is_paid: bool
 
 

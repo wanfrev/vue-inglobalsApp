@@ -110,12 +110,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "*"
     CORS_ORIGINS_LIST: list[str] = []
 
-    # Freemium: cuántas consultas reales (no rechazadas por estar fuera de
-    # contexto) puede procesar una sesión anónima antes de exigir pago.
-    # Descargar la memoria técnica (/history/{id}/export) es libre para
-    # cualquier sesión, pagada o no — el cliente pidió que tanto descargar
-    # como compartir sean accesibles para todos.
-    FREE_QUERY_LIMIT: int = 2
+    # Sin límite de consultas (a pedido del cliente: "que no hayan límites").
+    # Antes existía FREE_QUERY_LIMIT para exigir pago tras N consultas —
+    # se quitó junto con el resto del muro de pago (ver simulate.py). Lo que
+    # queda de "pagada" (is_paid) no bloquea nada hoy; es solo informativo.
     SESSION_EXPIRY_DAYS: int = 30
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

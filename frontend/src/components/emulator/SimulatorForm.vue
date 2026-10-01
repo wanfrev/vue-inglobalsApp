@@ -100,17 +100,10 @@ async function send() {
 
     messages.value.push({ role: 'answer', result })
   } catch (error) {
-    if (error.status === 402) {
-      messages.value.push({
-        role: 'paywall',
-        text: error.message,
-      })
-    } else {
-      messages.value.push({
-        role: 'alert',
-        text: `Error al procesar la solicitud: ${error.message}`,
-      })
-    }
+    messages.value.push({
+      role: 'alert',
+      text: `Error al procesar la solicitud: ${error.message}`,
+    })
   } finally {
     isProcessing.value = false
     simulationStatus.value = 'idle'
@@ -175,14 +168,6 @@ async function send() {
           <p class="break-words text-sm text-slate-700 whitespace-pre-line">{{ msg.text }}</p>
         </div>
 
-        <!-- Muro de pago: se acabaron las consultas gratis -->
-        <div
-          v-else-if="msg.role === 'paywall'"
-          class="rounded-2xl border-2 border-oro/40 bg-oro/5 p-4 text-center"
-        >
-          <p class="text-sm font-semibold text-oroOscuro">{{ msg.text }}</p>
-          <p class="mt-2 text-xs text-slate-500">Activa tu cuenta para seguir consultando y poder descargar tus memorias técnicas.</p>
-        </div>
       </div>
 
       <!-- Processing indicator -->

@@ -41,18 +41,7 @@ def simulate(
 
     is_paid = bool(session["is_paid"])
     used = session["free_queries_used"]
-    if not is_paid and used >= settings.FREE_QUERY_LIMIT:
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                f"Alcanzaste el límite de {settings.FREE_QUERY_LIMIT} consultas gratis. "
-                "Activa tu cuenta paga para seguir consultando."
-            ),
-        )
 
-    # Se procesa el adjunto DESPUÉS del chequeo de límite: si la consulta ya
-    # iba a rebotar con 402, no tiene sentido gastar CPU extrayendo texto de
-    # un archivo que no se va a usar.
     attached_text = ""
     attached_filename = ""
     if file is not None:
@@ -76,9 +65,7 @@ def simulate(
 
     # El detalle real del error (cuotas, IDs de proyecto, URLs internas del
     # proveedor) va solo al log del servidor — al usuario le llega un mensaje
-    # genérico. Como el contador de consultas gratis solo se descuenta más
-    # abajo, cuando run_simulation() terminó bien, un error aquí no le
-    # cuesta ninguna consulta al usuario.
+    # genérico.
     try:
         result = run_simulation(
             session_token=session["token"],
@@ -90,34 +77,27 @@ def simulate(
         logger.error("Proveedores de IA no disponibles para esta consulta: %s", str(e)[:500])
         raise HTTPException(
             status_code=503,
-            detail=(
-                "El servicio de IA está temporalmente saturado o no disponible. "
-                "Intenta de nuevo en unos minutos — no se descontó ninguna consulta gratis."
-            ),
+            detail="El servicio de IA está temporalmente saturado o no disponible. Intenta de nuevo en unos minutos.",
         )
     except Exception:
         logger.exception("Error inesperado procesando una simulación")
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Ocurrió un error procesando tu consulta. "
-                "Intenta de nuevo — no se descontó ninguna consulta gratis."
-            ),
+            detail="Ocurrió un error procesando tu consulta. Intenta de nuevo.",
         )
 
-    # Una pregunta fuera de contexto no consume consultas gratis (el
+    # Sin límite de consultas. Se sigue contando "free_queries_used" por
+    # sesión solo a modo informativo/estadístico — ya no bloquea nada (ver
+    # config.py). Una pregunta fuera de contexto no suma al contador (el
     # organizador la cortó antes de llegar al veredicto) — ver run_simulation.
     if result.get("in_scope") is False:
         result["free_queries_used"] = used
-        result["free_queries_remaining"] = 0 if is_paid else max(0, settings.FREE_QUERY_LIMIT - used)
         result["is_paid"] = is_paid
         return result
 
-    if not is_paid:
-        increment_free_queries(session["token"])
-        used += 1
+    increment_free_queries(session["token"])
+    used += 1
 
     result["free_queries_used"] = used
-    result["free_queries_remaining"] = 0 if is_paid else max(0, settings.FREE_QUERY_LIMIT - used)
     result["is_paid"] = is_paid
     return result
