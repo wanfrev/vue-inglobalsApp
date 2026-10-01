@@ -736,10 +736,12 @@ import iaasLogo from "../assets/iaas-logo.png";
         <div class="w-20 h-1 bg-[#D4AF37] mx-auto mb-6"></div>
         <a
           href={import.meta.env.PUBLIC_SIMULATOR_URL || "https://app.inglobals.com"}
-          class="inline-flex flex-col items-center gap-2 rounded-2xl bg-white/95 px-7 py-4 shadow-md hover:shadow-lg hover:scale-105 transition-all mb-6"
+          class="group relative inline-flex flex-col items-center gap-3 rounded-[2.5rem] bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] p-[3px] shadow-[0_0_55px_rgba(212,175,55,0.5)] transition-transform duration-300 hover:scale-105 hover:shadow-[0_0_70px_rgba(212,175,55,0.7)] mb-6"
         >
-          <Image src={iaasLogo} alt="" class="h-14 w-auto object-contain" />
-          <span class="text-sm font-bold text-blue-950">Simulador Sostenible (IA)</span>
+          <span class="flex flex-col items-center gap-3 rounded-[2.35rem] bg-white px-12 py-9 sm:px-16 sm:py-10">
+            <Image src={iaasLogo} alt="" class="h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-110 sm:h-28" />
+            <span class="text-lg font-extrabold tracking-wide text-blue-950 sm:text-xl">Simulador Sostenible (IA)</span>
+          </span>
         </a>
         <p class="text-slate-400 max-w-2xl mx-auto">
           Disminuyendo la brecha tecnologica regional mediante sistemas
