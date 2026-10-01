@@ -29,12 +29,8 @@ def get_simulation(expediente_id: str, session: dict = Depends(get_current_sessi
 
 @router.get("/{expediente_id}/export")
 def export_simulation(expediente_id: str, session: dict = Depends(get_current_session)):
-    if not session["is_paid"]:
-        raise HTTPException(
-            status_code=402,
-            detail="Descargar la memoria técnica requiere una cuenta paga. Activa tu cuenta para continuar.",
-        )
-
+    # Libre para cualquier sesión, pagada o no — el cliente pidió que
+    # descargar y compartir sean accesibles para todos.
     simulation = get_simulation_by_expediente(expediente_id, session_token=session["token"])
     if not simulation:
         raise HTTPException(

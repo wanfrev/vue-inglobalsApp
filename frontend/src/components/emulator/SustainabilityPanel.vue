@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   sustainability: { type: Object, required: true },
@@ -16,50 +16,66 @@ const fmtUsd = (n) => {
 }
 const fmtDec = (n, d = 2) => Number(n || 0).toFixed(d)
 
-// Una sola escala para todas las barras de tokens (Loop 1, Loop 2 y total), de
-// modo que se comparen entre sí y contra el umbral del protocolo.
-const scaleMax = computed(() => {
-  const totals = loops.value.map((l) => l.total_tokens)
-  return Math.max(s.value.total_tokens, s.value.budget_total_tokens, ...totals, 1) * 1.04
-})
-const pct = (value) => `${Math.min(100, (Number(value || 0) / scaleMax.value) * 100)}%`
-
 // Por nombre, no por posición: el paso de reformulación de la consulta (ver
 // engine.py) se agregó como primer ítem de "loops" y no tiene umbral propio
 // del protocolo (solo Loop 1 y Loop 2 lo tienen, ver el White Paper).
 const BUDGET_BY_LOOP_NAME = { 'Loop 1': 'budget_loop1_tokens', 'Loop 2': 'budget_loop2_tokens' }
-
-const tokenRows = computed(() => {
-  const rows = loops.value.map((l) => ({
-    key: l.name,
-    label: l.name,
-    prompt: l.prompt_tokens,
-    completion: l.completion_tokens,
-    total: l.total_tokens,
-    budget: BUDGET_BY_LOOP_NAME[l.name] ? s.value[BUDGET_BY_LOOP_NAME[l.name]] : 0,
-  }))
-  rows.push({
-    key: 'total',
-    label: 'Total',
-    prompt: s.value.prompt_tokens,
-    completion: s.value.completion_tokens,
-    total: s.value.total_tokens,
-    budget: s.value.budget_total_tokens,
-  })
-  return rows
-})
 
 const overBudget = (row) => row.budget > 0 && row.total > row.budget
 const ratio = (row) => (row.budget > 0 ? row.total / row.budget : 0)
 
 const maxCost = computed(() => Math.max(...loops.value.map((l) => l.cost_usd), 1e-9))
 const maxEnergy = computed(() => Math.max(...loops.value.map((l) => l.energy_wh), 1e-9))
+
+// --- Dona: distribución de tokens por paso ---------------------------------
+// Orden categórico FIJO (nunca ciclado, ver skill de dataviz): mismos colores
+// que ya usa el resto de la app para cada concepto, para no inventar una
+// paleta nueva. Validado contra CVD con scripts/validate_palette.js.
+const LOOP_COLOR_BY_NAME = {
+  'Reformulación': 'var(--color-violetaIA)',
+  'Loop 1': 'var(--color-oro)',
+  'Loop 2': 'var(--color-verdeEsm)',
+}
+const RADIUS = 50
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+// "Surface gap" entre arcos adyacentes (ver marks-and-anatomy.md) — los
+// separa sin necesidad de un borde que le agregue peso visual a algo que no
+// es dato.
+const SEGMENT_GAP = 3
+
+const hoveredLoop = ref(null)
+
+const donutSegments = computed(() => {
+  const total = s.value.total_tokens || 0
+  if (total <= 0) return []
+  let cumulative = 0
+  return loops.value.map((l) => {
+    const share = l.total_tokens / total
+    const rawLength = share * CIRCUMFERENCE
+    const dash = Math.max(0, rawLength - SEGMENT_GAP)
+    const segment = {
+      name: l.name,
+      total: l.total_tokens,
+      pct: Math.round(share * 100),
+      color: LOOP_COLOR_BY_NAME[l.name] || 'var(--color-azulCorp)',
+      dasharray: `${dash} ${CIRCUMFERENCE - dash}`,
+      dashoffset: -cumulative,
+      budget: BUDGET_BY_LOOP_NAME[l.name] ? s.value[BUDGET_BY_LOOP_NAME[l.name]] : 0,
+    }
+    cumulative += rawLength
+    return segment
+  })
+})
+
+const activeSegment = computed(
+  () => donutSegments.value.find((seg) => seg.name === hoveredLoop.value) || null
+)
 </script>
 
 <template>
   <section class="rounded-2xl border border-verdeEsm/25 bg-verdeEsm/[0.04] p-4 sm:p-5">
     <header class="mb-4 flex flex-wrap items-center gap-2">
-      <h4 class="text-sm font-bold text-azulCorp">Consumo de esta consulta</h4>
+      <h4 class="text-sm font-bold text-azulCorp">Métricas / Reporte Sostenible</h4>
       <span class="rounded-full bg-oro/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">ODS 12</span>
       <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
     </header>
@@ -90,43 +106,68 @@ const maxEnergy = computed(() => Math.max(...loops.value.map((l) => l.energy_wh)
       </div>
     </div>
 
-    <!-- Gráfica: tokens por loop vs umbral del protocolo -->
+    <!-- Gráfica: distribución de tokens por paso (dona) -->
     <div class="mt-5">
-      <h5 class="mb-2 text-xs font-bold text-azulCorp">Tokens por loop <span class="font-normal text-slate-500">— contra el umbral del protocolo</span></h5>
-      <div class="space-y-2.5">
-        <div
-          v-for="row in tokenRows"
-          :key="row.key"
-          role="img"
-          :aria-label="`${row.label}: ${fmtInt(row.total)} tokens (${fmtInt(row.prompt)} de entrada, ${fmtInt(row.completion)} de salida). Umbral: ${fmtInt(row.budget)}.`"
-        >
-          <div class="mb-1 flex items-baseline justify-between gap-2 text-[11px]">
-            <span class="font-semibold text-slate-700">{{ row.label }}</span>
-            <span class="text-right text-slate-500">
-              {{ fmtInt(row.total) }} tokens
-              <span v-if="row.budget" :class="overBudget(row) ? 'font-semibold text-oroOscuro' : 'font-semibold text-verdeEsm'">
-                · {{ overBudget(row) ? `${fmtDec(ratio(row), 1)}× el umbral` : 'dentro del umbral' }}
-              </span>
+      <h5 class="mb-3 text-xs font-bold text-azulCorp">Distribución de tokens por paso</h5>
+      <div class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:gap-6">
+        <div class="relative h-36 w-36 shrink-0">
+          <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90" role="img" aria-label="Distribución de tokens por paso de la consulta">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-slate-200)" stroke-width="16" />
+            <circle
+              v-for="seg in donutSegments"
+              :key="seg.name"
+              cx="60"
+              cy="60"
+              r="50"
+              fill="none"
+              stroke-width="16"
+              stroke-linecap="butt"
+              :stroke="seg.color"
+              :stroke-dasharray="seg.dasharray"
+              :stroke-dashoffset="seg.dashoffset"
+              :opacity="hoveredLoop && hoveredLoop !== seg.name ? 0.35 : 1"
+              class="cursor-pointer transition-opacity duration-150"
+              @mouseenter="hoveredLoop = seg.name"
+              @mouseleave="hoveredLoop = null"
+            >
+              <title>{{ seg.name }}: {{ fmtInt(seg.total) }} tokens ({{ seg.pct }}%)</title>
+            </circle>
+          </svg>
+          <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              {{ activeSegment ? activeSegment.name : 'Total' }}
+            </span>
+            <span class="text-xl font-bold text-azulCorp">
+              {{ fmtInt(activeSegment ? activeSegment.total : s.total_tokens) }}
+            </span>
+            <span class="text-[10px] text-slate-500">
+              tokens<template v-if="activeSegment"> · {{ activeSegment.pct }}%</template>
             </span>
           </div>
-          <div class="relative h-3.5 w-full overflow-hidden rounded-full bg-slate-200/70">
-            <div class="absolute inset-y-0 left-0 flex" :style="{ width: pct(row.total) }">
-              <div class="h-full bg-azulCorp/70" :style="{ width: row.total ? `${(row.prompt / row.total) * 100}%` : '0%' }"></div>
-              <div class="h-full flex-1 bg-oro"></div>
-            </div>
-            <div
-              v-if="row.budget"
-              class="absolute inset-y-0 w-0.5 bg-violetaIA"
-              :style="{ left: pct(row.budget) }"
-              :title="`Umbral: ${fmtInt(row.budget)} tokens`"
-            ></div>
+        </div>
+
+        <!-- Leyenda: siempre presente con 2+ series, con valor y % directo (ver skill de dataviz) -->
+        <div class="w-full space-y-1.5">
+          <div
+            v-for="seg in donutSegments"
+            :key="`legend-${seg.name}`"
+            class="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-1.5 py-1 text-[11px] transition-colors"
+            :class="hoveredLoop === seg.name ? 'bg-slate-100' : ''"
+            @mouseenter="hoveredLoop = seg.name"
+            @mouseleave="hoveredLoop = null"
+          >
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ backgroundColor: seg.color }"></span>
+            <span class="font-semibold text-slate-700">{{ seg.name }}</span>
+            <span class="text-slate-500">{{ fmtInt(seg.total) }} tokens · {{ seg.pct }}%</span>
+            <span
+              v-if="seg.budget"
+              class="ml-auto shrink-0 font-semibold"
+              :class="overBudget(seg) ? 'text-oroOscuro' : 'text-verdeEsm'"
+            >
+              {{ overBudget(seg) ? `${fmtDec(ratio(seg), 1)}× el umbral` : 'dentro del umbral' }}
+            </span>
           </div>
         </div>
-      </div>
-      <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500">
-        <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-azulCorp/70"></span>Entrada (contexto)</span>
-        <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-oro"></span>Salida (incluye razonamiento interno)</span>
-        <span class="inline-flex items-center gap-1"><span class="h-2 w-0.5 bg-violetaIA"></span>Umbral del protocolo</span>
       </div>
     </div>
 

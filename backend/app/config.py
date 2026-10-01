@@ -112,8 +112,9 @@ class Settings(BaseSettings):
 
     # Freemium: cuántas consultas reales (no rechazadas por estar fuera de
     # contexto) puede procesar una sesión anónima antes de exigir pago.
-    # Descargar la memoria técnica (/history/{id}/export) siempre requiere
-    # ser cuenta paga, sin importar cuántas consultas le queden.
+    # Descargar la memoria técnica (/history/{id}/export) es libre para
+    # cualquier sesión, pagada o no — el cliente pidió que tanto descargar
+    # como compartir sean accesibles para todos.
     FREE_QUERY_LIMIT: int = 2
     SESSION_EXPIRY_DAYS: int = 30
 
