@@ -22,21 +22,17 @@ const ratio = (total, budget) => (budget > 0 ? total / budget : 0)
 
 // --- Tarjetas tipo "widget" (una dona por métrica) --------------------------
 // A pedido del cliente: energía y CO2e también se grafican (antes eran solo
-// números), y las 4 tarjetas comparten el mismo estilo oscuro con anillo que
-// usan paneles de referencia tipo Mailgun/Stripe — fondo oscuro, cifra grande
-// al centro, anillo de color por loop.
+// números), las 4 comparten el mismo estilo de tarjeta con anillo (tipo
+// Mailgun/Stripe) — fondo blanco, cifra grande al centro, anillo de color por
+// loop, una al lado de la otra.
 //
-// Paleta categórica FIJA (nunca ciclada, ver skill de dataviz) — son "pasos
-// oscuros" de los mismos colores de marca (oroOscuro, un verde esmeralda más
-// oscuro, violetaIA), elegidos y validados específicamente para fondo oscuro
-// con scripts/validate_palette.js --mode dark --surface "#0f172a" (el verde
-// claro --color-verdeEsm y el oro --color-oro de la marca fallaban el banda
-// de luminosidad en modo oscuro — por eso no son los mismos tonos que usan
-// los badges ODS 12/13 de arriba, que sí están sobre fondo claro).
-const DARK_LOOP_COLOR_BY_NAME = {
+// Paleta categórica FIJA (nunca ciclada, ver skill de dataviz): los mismos
+// colores de marca (oro, verdeEsm, violetaIA), validados contra CVD para
+// fondo claro con scripts/validate_palette.js --mode light.
+const LOOP_COLOR_BY_NAME = {
   'Reformulación': 'var(--color-violetaIA)',
-  'Loop 1': 'var(--color-oroOscuro)',
-  'Loop 2': '#059669',
+  'Loop 1': 'var(--color-oro)',
+  'Loop 2': 'var(--color-verdeEsm)',
 }
 const SHORT_LOOP_NAME = { 'Reformulación': 'Reform.', 'Loop 1': 'L1', 'Loop 2': 'L2' }
 
@@ -59,7 +55,7 @@ function buildRing(perLoopValue) {
       shortName: SHORT_LOOP_NAME[l.name] || l.name,
       value,
       pct: Math.round(share * 100),
-      color: DARK_LOOP_COLOR_BY_NAME[l.name] || '#94a3b8',
+      color: LOOP_COLOR_BY_NAME[l.name] || '#94a3b8',
       dasharray: `${dash} ${CIRCUMFERENCE - dash}`,
       dashoffset: -cumulative,
     }
@@ -141,18 +137,20 @@ function centerSub(card) {
       <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
     </header>
 
-    <!-- 4 tarjetas oscuras tipo widget, una dona por métrica -->
-    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+    <!-- 4 tarjetas blancas tipo widget, una dona por métrica, una al lado de
+    la otra — en mobile no se apilan 2x2, se deslizan horizontalmente para
+    que las 4 sigan "una junto a la otra". -->
+    <div class="flex gap-2.5 overflow-x-auto pb-1 sm:gap-3">
       <div
         v-for="card in metricCards"
         :key="card.key"
-        class="flex min-w-0 flex-col items-center rounded-2xl bg-azulCorp px-3 py-4 text-center shadow-[0_8px_20px_rgba(15,23,42,0.25)]"
+        class="flex w-[8.5rem] shrink-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-white px-3 py-4 text-center shadow-sm sm:w-auto sm:flex-1"
       >
-        <div class="text-[10px] font-semibold uppercase tracking-wide text-white/55">{{ card.label }}</div>
+        <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ card.label }}</div>
 
         <div class="relative mx-auto mt-2.5 h-[5.5rem] w-[5.5rem] shrink-0 sm:h-24 sm:w-24">
           <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90" role="img" :aria-label="`${card.label}: ${card.fmt(card.totalValue)} ${card.unit}, por paso: ${card.segments.map((s2) => `${s2.name} ${s2.pct}%`).join(', ')}`">
-            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="14" />
+            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-slate-200)" stroke-width="14" />
             <circle
               v-for="seg in card.segments"
               :key="seg.name"
@@ -174,8 +172,8 @@ function centerSub(card) {
             </circle>
           </svg>
           <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span class="break-all text-sm font-bold leading-tight text-white sm:text-base">{{ centerValue(card) }}</span>
-            <span class="mt-0.5 text-[9px] text-white/50">{{ centerSub(card) }}</span>
+            <span class="break-all text-sm font-bold leading-tight text-azulCorp sm:text-base">{{ centerValue(card) }}</span>
+            <span class="mt-0.5 text-[9px] text-slate-500">{{ centerSub(card) }}</span>
           </div>
         </div>
 
@@ -186,8 +184,8 @@ function centerSub(card) {
           <span
             v-for="seg in card.segments"
             :key="`dot-${card.key}-${seg.name}`"
-            class="flex items-center gap-1 rounded-full px-1 py-0.5 text-[9px] font-medium text-white/60 transition-colors"
-            :class="isHovered(card.key, seg.name) ? 'bg-white/10 text-white' : ''"
+            class="flex items-center gap-1 rounded-full px-1 py-0.5 text-[9px] font-medium text-slate-500 transition-colors"
+            :class="isHovered(card.key, seg.name) ? 'bg-slate-100 text-azulCorp' : ''"
             @mouseenter="hovered = { cardKey: card.key, loopName: seg.name }"
             @mouseleave="hovered = null"
           >
@@ -196,13 +194,13 @@ function centerSub(card) {
           </span>
         </div>
 
-        <div v-if="card.sub" class="mt-2 text-[9px] leading-snug text-white/40">{{ card.sub }}</div>
+        <div v-if="card.sub" class="mt-2 text-[9px] leading-snug text-slate-400">{{ card.sub }}</div>
 
         <!-- Umbral del protocolo: solo Tokens lo tiene definido (ver White Paper) -->
         <div
           v-if="card.budget"
           class="mt-1.5 rounded-full px-2 py-0.5 text-[9px] font-bold"
-          :class="overBudget(card.totalValue, card.budget) ? 'bg-oro/20 text-oro' : 'bg-verdeEsm/20 text-verdeEsm'"
+          :class="overBudget(card.totalValue, card.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
         >
           {{ overBudget(card.totalValue, card.budget) ? `${fmtDec(ratio(card.totalValue, card.budget), 1)}× el umbral` : 'dentro del umbral' }}
         </div>

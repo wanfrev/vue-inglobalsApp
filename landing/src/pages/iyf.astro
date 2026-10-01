@@ -20,6 +20,7 @@ import reconocimiento2 from "../assets/reconocimiento2.jpeg";
 import resultados from "../assets/resultados_dispositivo.jpeg";
 import urbeLogo from "../assets/URBE_LOGO.png";
 import luzLogo from "../assets/Logo_LUZ.gif";
+import iaasLogo from "../assets/iaas-logo.png";
 ---
 
 <Layout title="Emprendimiento y CEO">
@@ -735,9 +736,10 @@ import luzLogo from "../assets/Logo_LUZ.gif";
         <div class="w-20 h-1 bg-[#D4AF37] mx-auto mb-6"></div>
         <a
           href={import.meta.env.PUBLIC_SIMULATOR_URL || "https://app.inglobals.com"}
-          class="inline-block rounded-full bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] px-6 py-3 text-sm font-bold text-white shadow-md hover:shadow-lg hover:scale-105 transition-all mb-6"
+          class="inline-flex flex-col items-center gap-2 rounded-2xl bg-white/95 px-7 py-4 shadow-md hover:shadow-lg hover:scale-105 transition-all mb-6"
         >
-          SIMULADOR SOSTENIBLE
+          <Image src={iaasLogo} alt="" class="h-14 w-auto object-contain" />
+          <span class="text-sm font-bold text-blue-950">Simulador Sostenible (IA)</span>
         </a>
         <p class="text-slate-400 max-w-2xl mx-auto">
           Disminuyendo la brecha tecnologica regional mediante sistemas
