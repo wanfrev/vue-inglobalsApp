@@ -57,51 +57,47 @@ import iaasLogo from "../assets/iaas-logo.png";
     </div>
   </section>
 
-  <section class="py-20 md:py-28 bg-white">
+  <section class="py-10 md:py-14 bg-white">
     <div class="max-w-6xl mx-auto px-6">
-      <div class="text-center mb-10">
-        <span
-          class="text-xs font-bold tracking-[0.3em] text-[#996515] uppercase"
-        >
-          Vínculos Institucionales
-        </span>
-        <h2 class="text-3xl md:text-4xl font-black text-blue-950 mt-3">
-          Alianzas Académicas
-        </h2>
-        <div
-          class="w-24 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-4"
-        >
-        </div>
-      </div>
+      <div class="grid lg:grid-cols-2 gap-10 lg:items-stretch">
+        <div>
+          <div class="text-center lg:text-left mb-6">
+            <span
+              class="text-xs font-bold tracking-[0.3em] text-[#996515] uppercase"
+            >
+              Vínculos Institucionales
+            </span>
+            <h2 class="text-2xl md:text-3xl font-black text-blue-950 mt-2">
+              Alianzas Académicas
+            </h2>
+            <div
+              class="w-20 h-1 bg-gradient-to-r from-[#D4AF37] to-transparent mt-3 mx-auto lg:mx-0"
+            >
+            </div>
+          </div>
+          <div class="space-y-4">
       <details
         class="group rounded-2xl border border-amber-200/60 bg-white shadow-sm"
       >
-        <summary class="list-none cursor-pointer px-6 py-6">
-          <div class="grid md:grid-cols-2 gap-10 items-center">
-            <div class="flex items-center justify-center">
-              <Image
-                src={luzLogo}
-                alt="Logo LUZ"
-                loading="lazy"
-                class="w-48 md:w-60 h-auto object-contain"
-              />
-            </div>
-            <div class="flex items-center justify-between gap-6">
-              <div>
-                <h3 class="text-2xl font-bold text-blue-950 mb-3">
-                  FACULTAD DE CIENCIAS ECONÓMICAS Y SOCIALES. ESCUELA DE
-                  CONTADURÍA PÚBLICA. DIVISIÓN DE ESTUDIOS DE POSGRADO
-                  ESPECIALIDAD EN CONTADURÍA: MENCIÓN: AUDITORÍA.
-                </h3>
-                <p class="text-slate-700 leading-relaxed"></p>
-              </div>
-              <span
-                class="text-sm font-bold text-[#996515] uppercase tracking-widest group-open:rotate-180 transition-transform"
-                aria-hidden="true"
-              >
-                ▼
-              </span>
-            </div>
+        <summary class="list-none cursor-pointer px-5 py-4">
+          <div class="flex items-center gap-4">
+            <Image
+              src={luzLogo}
+              alt="Logo LUZ"
+              loading="lazy"
+              class="w-14 h-14 shrink-0 object-contain"
+            />
+            <h3 class="flex-1 text-sm font-bold leading-snug text-blue-950">
+              FACULTAD DE CIENCIAS ECONÓMICAS Y SOCIALES. ESCUELA DE
+              CONTADURÍA PÚBLICA. DIVISIÓN DE ESTUDIOS DE POSGRADO
+              ESPECIALIDAD EN CONTADURÍA: MENCIÓN: AUDITORÍA.
+            </h3>
+            <span
+              class="shrink-0 text-sm font-bold text-[#996515] uppercase tracking-widest group-open:rotate-180 transition-transform"
+              aria-hidden="true"
+            >
+              ▼
+            </span>
           </div>
         </summary>
         <div class="border-t border-amber-200/60 px-6 pb-8 pt-6">
@@ -174,32 +170,25 @@ import iaasLogo from "../assets/iaas-logo.png";
       <details
         class="group mt-12 rounded-2xl border border-amber-200/60 bg-white shadow-sm"
       >
-        <summary class="list-none cursor-pointer px-6 py-6">
-          <div class="grid md:grid-cols-2 gap-10 items-center">
-            <div class="flex items-center justify-center">
-              <Image
-                src={urbeLogo}
-                alt="Logo URBE"
-                loading="lazy"
-                class="w-48 md:w-60 h-auto object-contain"
-              />
-            </div>
-            <div class="flex items-center justify-between gap-6">
-              <div>
-                <h3 class="text-lg md:text-xl font-bold text-blue-950 mb-3">
-                  UNIVERSIDAD PRIVADA DR. RAFAEL BELLOSO CHACIN VICERRECTORADO
-                  ACADEMICO DECANATO DE EXTENSION DIRECCION DE FORMACION
-                  CONTINUA. DIPLOMADO: DOCUMENTOS DE AUDITORIA SOSTENIBLE + IA
-                </h3>
-                <p class="text-slate-700 leading-relaxed"></p>
-              </div>
-              <span
-                class="text-sm font-bold text-[#996515] uppercase tracking-widest group-open:rotate-180 transition-transform"
-                aria-hidden="true"
-              >
-                ▼
-              </span>
-            </div>
+        <summary class="list-none cursor-pointer px-5 py-4">
+          <div class="flex items-center gap-4">
+            <Image
+              src={urbeLogo}
+              alt="Logo URBE"
+              loading="lazy"
+              class="w-14 h-14 shrink-0 object-contain"
+            />
+            <h3 class="flex-1 text-sm font-bold leading-snug text-blue-950">
+              UNIVERSIDAD PRIVADA DR. RAFAEL BELLOSO CHACIN VICERRECTORADO
+              ACADEMICO DECANATO DE EXTENSION DIRECCION DE FORMACION
+              CONTINUA. DIPLOMADO: DOCUMENTOS DE AUDITORIA SOSTENIBLE + IA
+            </h3>
+            <span
+              class="shrink-0 text-sm font-bold text-[#996515] uppercase tracking-widest group-open:rotate-180 transition-transform"
+              aria-hidden="true"
+            >
+              ▼
+            </span>
           </div>
         </summary>
         <div class="border-t border-amber-200/60 px-6 pb-8 pt-6">
@@ -724,32 +713,45 @@ import iaasLogo from "../assets/iaas-logo.png";
           </script>
         </div>
       </details>
+          </div>
+        </div>
+
+        <!-- RIGHT: Impacto Tecnologico y Social + acceso al simulador, lado a
+        lado con las alianzas para que todo quepa en una misma pantalla. -->
+        <div
+          class="flex flex-col items-center justify-center rounded-[2.5rem] bg-blue-950 px-6 py-10 text-center shadow-2xl relative overflow-hidden"
+        >
+          <div
+            class="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37]/10 blur-[100px] -z-0"
+          >
+          </div>
+          <div class="relative z-10 flex flex-col items-center">
+            <h2 class="text-2xl md:text-3xl font-bold text-white mb-3">
+              Impacto Tecnologico y Social
+            </h2>
+            <div class="w-16 h-1 bg-[#D4AF37] mx-auto mb-6"></div>
+            <a
+              href={import.meta.env.PUBLIC_SIMULATOR_URL || "https://app.inglobals.com"}
+              class="group relative inline-flex flex-col items-center gap-3 rounded-[2.5rem] bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] p-[3px] shadow-[0_0_55px_rgba(212,175,55,0.5)] transition-transform duration-300 hover:scale-105 hover:shadow-[0_0_70px_rgba(212,175,55,0.7)] mb-6"
+            >
+              <span class="flex flex-col items-center gap-3 rounded-[2.35rem] bg-white px-10 py-7 sm:px-12 sm:py-8">
+                <Image src={iaasLogo} alt="" class="h-20 w-auto object-contain transition-transform duration-300 group-hover:scale-110 sm:h-24" />
+                <span class="text-base font-extrabold tracking-wide text-blue-950 sm:text-lg">Simulador Sostenible (IA)</span>
+              </span>
+            </a>
+            <p class="text-slate-400 text-sm max-w-xs mx-auto">
+              Disminuyendo la brecha tecnologica regional mediante sistemas
+              adaptables al sector residencial, comercial e industrial en la
+              era de 5ta generacion.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <section class="relative py-24 md:py-32 bg-blue-950">
+  <section class="relative py-20 md:py-28 bg-blue-950">
     <div class="max-w-6xl mx-auto px-4">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
-          Impacto Tecnologico y Social
-        </h2>
-        <div class="w-20 h-1 bg-[#D4AF37] mx-auto mb-6"></div>
-        <a
-          href={import.meta.env.PUBLIC_SIMULATOR_URL || "https://app.inglobals.com"}
-          class="group relative inline-flex flex-col items-center gap-3 rounded-[2.5rem] bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] p-[3px] shadow-[0_0_55px_rgba(212,175,55,0.5)] transition-transform duration-300 hover:scale-105 hover:shadow-[0_0_70px_rgba(212,175,55,0.7)] mb-6"
-        >
-          <span class="flex flex-col items-center gap-3 rounded-[2.35rem] bg-white px-12 py-9 sm:px-16 sm:py-10">
-            <Image src={iaasLogo} alt="" class="h-24 w-auto object-contain transition-transform duration-300 group-hover:scale-110 sm:h-28" />
-            <span class="text-lg font-extrabold tracking-wide text-blue-950 sm:text-xl">Simulador Sostenible (IA)</span>
-          </span>
-        </a>
-        <p class="text-slate-400 max-w-2xl mx-auto">
-          Disminuyendo la brecha tecnologica regional mediante sistemas
-          adaptables al sector residencial, comercial e industrial en la era de
-          5ta generacion.
-        </p>
-      </div>
-
       <div class="grid md:grid-cols-2 gap-8 mb-16">
         <div
           class="p-10 rounded-[2.5rem] bg-white/5 border border-amber-500/10 backdrop-blur-md hover:border-[#D4AF37]/50 transition-all group"

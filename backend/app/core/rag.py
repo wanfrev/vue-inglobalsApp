@@ -152,11 +152,49 @@ def index_document(
     }
 
 
+def _expand_full_documents(results: list[dict], metadata: list[dict], max_doc_chars: int = 25000) -> list[dict]:
+    """Un artículo puede remitir a otros del MISMO documento (ej. el art. 23 de
+    la Providencia SNAT/2024/000102 remite a los art. 3, 4, 5 y 19) — si la
+    búsqueda semántica por top_k trae solo el chunk que menciona la remisión,
+    el Loop 1 ve la referencia pero no el texto de los artículos referidos, y
+    reporta (con razón) que "falta el texto completo" aunque esa bibliografía
+    SÍ está indexada. Por eso, una vez que un documento entra al top_k, se
+    completa con el resto de sus chunks (en orden), no solo el fragmento que
+    matcheó semánticamente. Acotado por tamaño total del documento
+    (max_doc_chars, ~una Providencia o norma corta/mediana completa) para no
+    inflar el contexto — y el costo — con libros o manuales largos que solo
+    aportaron un fragmento puntual."""
+    seen_keys = {(r["id"], r["chunk_index"]) for r in results}
+    seen_doc_ids = {r["id"] for r in results}
+    chunks_by_doc: dict[str, list[dict]] = {}
+    for m in metadata:
+        doc_id = m.get("id")
+        if doc_id in seen_doc_ids:
+            chunks_by_doc.setdefault(doc_id, []).append(m)
+
+    expansions = []
+    for doc_id, chunks in chunks_by_doc.items():
+        total_chars = sum(len(c.get("text", "")) for c in chunks)
+        if total_chars > max_doc_chars:
+            continue
+        for m in sorted(chunks, key=lambda c: c.get("chunk_index", 0)):
+            key = (m["id"], m["chunk_index"])
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            entry = m.copy()
+            entry["score"] = 0.0
+            expansions.append(entry)
+
+    return results + expansions
+
+
 def search_legal_context(
     query: str,
     top_k: int = 5,
     filter_category: str | None = None,
     exclude_categories: list[str] | None = None,
+    expand_full_document: bool = True,
 ) -> list[dict]:
     model = get_embedding_model()
     query_embedding = model.encode(
@@ -204,6 +242,8 @@ def search_legal_context(
             entry = metadata[original_idx].copy()
             entry["score"] = float(score)
             results.append(entry)
+        if expand_full_document and results:
+            results = _expand_full_documents(results, metadata)
         return results
 
     k = min(top_k, index.ntotal)
@@ -216,6 +256,8 @@ def search_legal_context(
         entry = metadata[pos].copy()
         entry["score"] = float(score)
         results.append(entry)
+    if expand_full_document and results:
+        results = _expand_full_documents(results, metadata)
     return results
 
 

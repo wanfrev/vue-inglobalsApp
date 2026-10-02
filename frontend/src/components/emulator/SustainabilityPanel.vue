@@ -137,14 +137,14 @@ function centerSub(card) {
       <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
     </header>
 
-    <!-- 4 tarjetas blancas tipo widget, una dona por métrica, una al lado de
-    la otra — en mobile no se apilan 2x2, se deslizan horizontalmente para
-    que las 4 sigan "una junto a la otra". -->
-    <div class="flex gap-2.5 overflow-x-auto pb-1 sm:gap-3">
+    <!-- 4 tarjetas blancas tipo widget, una dona por métrica — SIEMPRE las 4
+    visibles a la vez (a pedido del cliente: "no se debe ocultar nada"), sin
+    scroll horizontal que las esconda. 2x2 en mobile, 1x4 desde sm. -->
+    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
       <div
         v-for="card in metricCards"
         :key="card.key"
-        class="flex w-[8.5rem] shrink-0 flex-col items-center rounded-2xl border border-slate-200/80 bg-white px-3 py-4 text-center shadow-sm sm:w-auto sm:flex-1"
+        class="flex flex-col items-center rounded-2xl border border-slate-200/80 bg-white px-3 py-4 text-center shadow-sm"
       >
         <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ card.label }}</div>
 
