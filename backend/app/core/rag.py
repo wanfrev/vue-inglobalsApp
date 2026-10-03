@@ -11,9 +11,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
 from app.database import (
+    faiss_write_lock,
     get_embedding_model,
     get_faiss_index,
     get_metadata,
+    refresh_faiss_from_disk,
     save_faiss_index,
 )
 
@@ -123,25 +125,31 @@ def index_document(
 
     doc_id = str(uuid.uuid4())
     indexed_at = datetime.now(timezone.utc).isoformat()
-    index = get_faiss_index(dimension=embeddings.shape[1])
-    metadata = get_metadata()
 
-    for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
-        metadata.append(
-            {
-                "id": doc_id,
-                "chunk_index": i,
-                "title": title,
-                "category": category,
-                "date": date or "",
-                "text": chunk,
-                "indexed_at": indexed_at,
-                "file_name": file_path.name,
-            }
-        )
+    # La codificación (lenta) ya terminó fuera del candado; solo la parte de
+    # leer-modificar-guardar es exclusiva. Se recarga antes desde disco para
+    # no pisar lo que otro worker haya subido mientras tanto.
+    with faiss_write_lock():
+        refresh_faiss_from_disk(dimension=embeddings.shape[1])
+        index = get_faiss_index(dimension=embeddings.shape[1])
+        metadata = get_metadata()
 
-    index.add(np.array(embeddings, dtype=np.float32))
-    save_faiss_index()
+        for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
+            metadata.append(
+                {
+                    "id": doc_id,
+                    "chunk_index": i,
+                    "title": title,
+                    "category": category,
+                    "date": date or "",
+                    "text": chunk,
+                    "indexed_at": indexed_at,
+                    "file_name": file_path.name,
+                }
+            )
+
+        index.add(np.array(embeddings, dtype=np.float32))
+        save_faiss_index()
 
     return {
         "id": doc_id,
@@ -285,34 +293,37 @@ def list_documents(filter_category: str | None = None) -> list[dict]:
 
 
 def delete_document(doc_id: str) -> None:
-    metadata = get_metadata()
-    indices_to_remove = [i for i, m in enumerate(metadata) if m.get("id") == doc_id]
+    with faiss_write_lock():
+        refresh_faiss_from_disk()
+        metadata = get_metadata()
+        indices_to_remove = [i for i, m in enumerate(metadata) if m.get("id") == doc_id]
 
-    if not indices_to_remove:
-        raise ValueError(f"Documento '{doc_id}' no encontrado en el índice")
+        if not indices_to_remove:
+            raise ValueError(f"Documento '{doc_id}' no encontrado en el índice")
 
-    index = get_faiss_index()
-    all_vectors = np.array(
-        [index.reconstruct(i) for i in range(index.ntotal)], dtype=np.float32
-    )
+        index = get_faiss_index()
+        all_vectors = np.array(
+            [index.reconstruct(i) for i in range(index.ntotal)], dtype=np.float32
+        )
 
-    keep_mask = np.ones(index.ntotal, dtype=bool)
-    keep_mask[indices_to_remove] = False
-    remaining_vectors = all_vectors[keep_mask]
+        keep_mask = np.ones(index.ntotal, dtype=bool)
+        keep_mask[indices_to_remove] = False
+        remaining_vectors = all_vectors[keep_mask]
 
-    import faiss
+        import faiss
 
-    dimension = remaining_vectors.shape[1] if remaining_vectors.size > 0 else 384
-    new_index = faiss.IndexFlatIP(dimension)
-    if remaining_vectors.size > 0:
-        new_index.add(remaining_vectors)
+        dimension = remaining_vectors.shape[1] if remaining_vectors.size > 0 else 384
+        new_index = faiss.IndexFlatIP(dimension)
+        if remaining_vectors.size > 0:
+            new_index.add(remaining_vectors)
 
-    import app.database as db
+        import app.database as db
 
-    db._faiss_index = new_index
+        db._faiss_index = new_index
 
-    remaining_metadata = [m for i, m in enumerate(metadata) if i not in indices_to_remove]
-    metadata.clear()
-    metadata.extend(remaining_metadata)
+        removed = set(indices_to_remove)
+        remaining_metadata = [m for i, m in enumerate(metadata) if i not in removed]
+        metadata.clear()
+        metadata.extend(remaining_metadata)
 
-    save_faiss_index()
+        save_faiss_index()

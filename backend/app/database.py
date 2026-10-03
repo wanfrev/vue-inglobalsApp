@@ -1,6 +1,9 @@
 import json
+import os
 import secrets
 import sqlite3
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -72,25 +75,83 @@ def get_embedding_model():
     return _embedding_model
 
 
-def _ensure_faiss_loaded(dimension: int = 384) -> None:
-    """Carga el índice y los metadatos desde disco si este proceso worker
-    todavía no lo ha hecho. Con Gunicorn corriendo varios workers, cada uno
-    tiene su propia memoria: si algo llama a get_metadata()/list_documents()
-    sin pasar antes por get_faiss_index(), un worker "frío" (que aún no
-    atendió ninguna búsqueda) devolvía una lista vacía aunque el índice sí
-    existiera en disco — dependía de a qué worker te tocara. Por eso ambas
-    funciones pasan por acá."""
-    global _faiss_index
-    if _faiss_index is None:
-        import faiss
+# Con Gunicorn corriendo varios workers, cada uno tiene su propia copia del
+# índice en memoria. Dos problemas reales que ya vimos en producción:
+#  1. Un worker "frío" devolvía una lista vacía aunque el índice existiera en
+#     disco (dependía de a qué worker te tocara).
+#  2. "Lost update": cada worker guardaba SU copia completa, así que al subir
+#     varios documentos seguidos (repartidos entre workers) el último en
+#     guardar pisaba lo que había agregado el otro — se perdieron 6 de 12
+#     documentos subidos. Por eso: (a) todo cambio al índice se hace bajo un
+#     candado entre procesos, recargando antes desde disco lo que otro worker
+#     haya guardado, y (b) cada worker detecta (por el archivo de metadatos,
+#     que se escribe al final) que el disco cambió y recarga.
+try:
+    import fcntl
+except ImportError:  # Windows (solo desarrollo local, un solo proceso)
+    fcntl = None
+
+_thread_lock = threading.RLock()
+_lock_depth = 0
+_lock_file = None
+_loaded_stamp = None
+
+
+@contextmanager
+def faiss_write_lock():
+    """Candado exclusivo entre procesos (y threads) para modificar el índice.
+    Reentrante dentro del mismo thread."""
+    global _lock_depth, _lock_file
+    with _thread_lock:
+        if _lock_depth == 0 and fcntl is not None:
+            _lock_file = open(settings.CHROMA_DIR / "faiss.lock", "a+")
+            fcntl.flock(_lock_file, fcntl.LOCK_EX)
+        _lock_depth += 1
+        try:
+            yield
+        finally:
+            _lock_depth -= 1
+            if _lock_depth == 0 and _lock_file is not None:
+                fcntl.flock(_lock_file, fcntl.LOCK_UN)
+                _lock_file.close()
+                _lock_file = None
+
+
+def _meta_stamp():
+    try:
+        st = (settings.CHROMA_DIR / "faiss_metadata.json").stat()
+        return (st.st_mtime_ns, st.st_size)
+    except FileNotFoundError:
+        return None
+
+
+def refresh_faiss_from_disk(dimension: int = 384) -> None:
+    """Descarta la copia en memoria y vuelve a leer el índice y los metadatos
+    desde disco. Llamar siempre dentro de faiss_write_lock() antes de
+    modificar el índice."""
+    global _faiss_index, _faiss_metadata, _loaded_stamp
+    import faiss
+    with faiss_write_lock():
         index_path = settings.CHROMA_DIR / "faiss.index"
         meta_path = settings.CHROMA_DIR / "faiss_metadata.json"
-        if index_path.exists():
-            _faiss_index = faiss.read_index(str(index_path))
+        stamp = _meta_stamp()
+        if index_path.exists() and stamp is not None:
+            new_index = faiss.read_index(str(index_path))
             with open(meta_path, "r", encoding="utf-8") as f:
-                _faiss_metadata.extend(json.load(f))
+                new_metadata = json.load(f)
+            _faiss_index = new_index
+            _faiss_metadata = new_metadata
         else:
             _faiss_index = faiss.IndexFlatIP(dimension)
+            _faiss_metadata = []
+        _loaded_stamp = stamp
+
+
+def _ensure_faiss_loaded(dimension: int = 384) -> None:
+    """Carga el índice desde disco si este worker aún no lo ha hecho, o si
+    otro worker lo modificó desde la última carga."""
+    if _faiss_index is None or _meta_stamp() != _loaded_stamp:
+        refresh_faiss_from_disk(dimension)
 
 
 def get_faiss_index(dimension: int = 384):
@@ -99,14 +160,25 @@ def get_faiss_index(dimension: int = 384):
 
 
 def save_faiss_index() -> None:
+    """Escribe el índice y los metadatos a disco de forma atómica (archivo
+    temporal + reemplazo; los metadatos van al final porque su fecha es la
+    señal que usan los demás workers para saber que hay algo nuevo). Llamar
+    dentro de faiss_write_lock()."""
     import faiss
-    global _faiss_index
-    if _faiss_index is not None:
+    global _loaded_stamp
+    if _faiss_index is None:
+        return
+    with faiss_write_lock():
         index_path = settings.CHROMA_DIR / "faiss.index"
         meta_path = settings.CHROMA_DIR / "faiss_metadata.json"
-        faiss.write_index(_faiss_index, str(index_path))
-        with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(_faiss_metadata, f, ensure_ascii=False, indent=2)
+        tmp_index = index_path.with_suffix(".index.tmp")
+        tmp_meta = meta_path.with_suffix(".json.tmp")
+        faiss.write_index(_faiss_index, str(tmp_index))
+        with open(tmp_meta, "w", encoding="utf-8") as f:
+            json.dump(_faiss_metadata, f, ensure_ascii=False)
+        os.replace(tmp_index, index_path)
+        os.replace(tmp_meta, meta_path)
+        _loaded_stamp = _meta_stamp()
 
 
 def get_metadata() -> list[dict]:
