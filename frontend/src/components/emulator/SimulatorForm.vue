@@ -3,8 +3,11 @@ import { ref } from 'vue'
 import { simulate, startSession } from '../../services/api.js'
 import AnswerCard from './AnswerCard.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
+import SurveyBanner from './SurveyBanner.vue'
+import { SURVEY_AT_QUERY_NUMBERS } from '../../constants.js'
 
 const messages = ref([])
+const showSurvey = ref(false)
 const isProcessing = ref(false)
 
 // Adjuntar un archivo a la consulta (a pedido del cliente): la IA lo usa
@@ -79,6 +82,7 @@ async function send() {
   isProcessing.value = true
   simulationStatus.value = 'processing'
 
+  showSurvey.value = false
   messages.value.push({ role: 'user', text, fileName: file?.name || '' })
   promptText.value = ''
   attachedFile.value = null
@@ -99,6 +103,10 @@ async function send() {
     }
 
     messages.value.push({ role: 'answer', result })
+
+    // Cuestionario del cliente: se ofrece al llegar a la 3.ª y 4.ª consulta
+    // válida de la sesión (free_queries_used ya incluye esta respuesta).
+    showSurvey.value = SURVEY_AT_QUERY_NUMBERS.includes(result.free_queries_used)
   } catch (error) {
     messages.value.push({
       role: 'alert',
@@ -151,6 +159,7 @@ async function send() {
         <!-- Respuesta del protocolo AOPCCPS+IA (Loop 1 + Loop 2 + consumo) -->
         <AnswerCard v-else-if="msg.role === 'answer'" :result="msg.result" />
 
+
         <!-- Alerta de rebote -->
         <div
           v-else-if="msg.role === 'alert'"
@@ -186,6 +195,9 @@ async function send() {
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
       <div class="mx-auto w-full max-w-4xl">
+        <!-- Cuestionario del cliente: fijo sobre el campo de texto (visible sin
+        hacer scroll) en la 3.ª y 4.ª consulta; se puede cerrar. -->
+        <SurveyBanner v-if="showSurvey" class="mb-3" @close="showSurvey = false" />
         <p v-if="attachmentError" class="mb-2 text-xs font-medium text-violetaIA">{{ attachmentError }}</p>
 
         <!-- Chip del archivo adjunto, antes de enviar -->

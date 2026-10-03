@@ -2,16 +2,13 @@
 import { computed, ref } from 'vue'
 import { exportSimulation } from '../../services/api.js'
 import SustainabilityPanel from './SustainabilityPanel.vue'
+import { FEEDBACK_FORM_URL } from '../../constants.js'
 
 const props = defineProps({
   result: { type: Object, required: true },
 })
 
 const ENTITY_LABELS = { publica: 'Pública', privada: 'Privada', mixta: 'Mixta' }
-
-// Buzón de sugerencias para temas no resueltos (a pedido del cliente): un
-// formulario de Google ya existente, no uno nuevo creado acá.
-const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScaMVmgWRcQrd1Y05J9BcVYw3d4Rusiw0QGDrqXS7XXelZYyw/viewform?usp=header'
 
 const loop1 = computed(() => props.result.loop1 || {})
 const loop2 = computed(() => props.result.loop2 || {})
@@ -23,6 +20,11 @@ const consultedSources = computed(() => {
 })
 
 const pruningPercent = computed(() => Math.round((loop2.value.pruning_ratio || 0) * 100))
+
+const verification = computed(() => ({
+  verified: loop1.value.verified_claims?.length || 0,
+  discarded: loop1.value.discarded_claims?.length || 0,
+}))
 
 // "Tema no resuelto": el Loop 1 no pudo verificar nada contra la bibliografía,
 // o el Loop 2 marcó la respuesta como no concluyente. En ambos casos se
@@ -310,6 +312,6 @@ async function copyShareText() {
       </div>
     </details>
 
-    <SustainabilityPanel v-if="result.sustainability" :sustainability="result.sustainability" />
+    <SustainabilityPanel v-if="result.sustainability" :sustainability="result.sustainability" :verification="verification" />
   </div>
 </template>
