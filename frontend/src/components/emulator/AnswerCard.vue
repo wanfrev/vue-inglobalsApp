@@ -312,6 +312,6 @@ async function copyShareText() {
       </div>
     </details>
 
-    <SustainabilityPanel v-if="result.sustainability" :sustainability="result.sustainability" :verification="verification" />
+    <SustainabilityPanel v-if="result.sustainability" :sustainability="result.sustainability" :verification="verification" :pruning-percent="pruningPercent" />
   </div>
 </template>

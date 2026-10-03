@@ -5,6 +5,8 @@ const props = defineProps({
   sustainability: { type: Object, required: true },
   // Afirmaciones del Loop 1: verificadas vs descartadas (falsabilidad 3/3).
   verification: { type: Object, default: () => ({ verified: 0, discarded: 0 }) },
+  // % de palabras que el Loop 2 podó respecto al borrador lógico.
+  pruningPercent: { type: Number, default: 0 },
 })
 
 const s = computed(() => props.sustainability)
@@ -22,152 +24,53 @@ const fmtCo2 = (n) => fmtDec(n, Number(n || 0) < 1 ? 3 : 2)
 const overBudget = (total, budget) => budget > 0 && total > budget
 const ratio = (total, budget) => (budget > 0 ? total / budget : 0)
 
-// --- Estilo "dashboard" (a pedido del cliente, referencia tipo Mailgun) -----
-// Tarjetas blancas sobre fondo gris muy claro, título chico a la izquierda,
-// dona gruesa con la cifra grande al centro, y una línea suave con punto final.
-//
-// Dona por paso (Reformulación / Loop 1 / Loop 2): paleta categórica FIJA de
-// marca (violeta, oro, verde), validada para fondo claro con
-// scripts/validate_palette.js --mode light.
+// --- Panel de KPI (a pedido del cliente: mismo tipo de gráficas que el panel
+// de sostenibilidad de referencia — barras con línea, torta con porcentajes,
+// barras por categoría y medidor con aguja) ---------------------------------
+// Color = el PASO (Reformulación / Loop 1 / Loop 2), igual en todas las
+// gráficas (el color sigue a la entidad, nunca se reasigna). Paleta categórica
+// fija de marca, validada para fondo claro con validate_palette.js --mode light.
 const STEP_COLOR = {
   'Reformulación': 'var(--color-violetaIA)',
   'Loop 1': 'var(--color-oro)',
   'Loop 2': 'var(--color-verdeEsm)',
 }
-const SHORT_STEP = { 'Reformulación': 'Reform.', 'Loop 1': 'L1', 'Loop 2': 'L2' }
+const SHORT_STEP = { 'Reformulación': 'Reform.', 'Loop 1': 'Loop 1', 'Loop 2': 'Loop 2' }
 
-const RADIUS = 50
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS
-const RING_WIDTH = 15
-const SEGMENT_GAP = 3
+const steps = computed(() =>
+  loops.value.map((l) => ({
+    ...l,
+    short: SHORT_STEP[l.name] || l.name,
+    color: STEP_COLOR[l.name] || '#94a3b8',
+  })),
+)
 
-function buildRing(perStepValue) {
-  const total = loops.value.reduce((sum, l) => sum + perStepValue(l), 0)
-  let cumulative = 0
-  return loops.value.map((l) => {
-    const value = perStepValue(l)
-    const share = total > 0 ? value / total : 0
-    const rawLength = share * CIRCUMFERENCE
-    const dash = Math.max(0, rawLength - SEGMENT_GAP)
-    const segment = {
-      name: l.name,
-      shortName: SHORT_STEP[l.name] || l.name,
-      value,
-      pct: Math.round(share * 100),
-      color: STEP_COLOR[l.name] || '#94a3b8',
-      dasharray: `${dash} ${CIRCUMFERENCE - dash}`,
-      dashoffset: -cumulative,
-    }
-    cumulative += rawLength
-    return segment
-  })
-}
-
-const metricCards = computed(() => [
-  {
-    key: 'tokens',
-    label: 'Tokens',
-    totalValue: s.value.total_tokens,
-    fmt: fmtInt,
-    unit: 'tokens',
-    sub: `entrada ${fmtInt(s.value.prompt_tokens)} · salida ${fmtInt(s.value.completion_tokens)}`,
-    segments: buildRing((l) => l.total_tokens),
-    budget: s.value.budget_total_tokens,
-  },
-  {
-    key: 'costo',
-    label: 'Costo',
-    totalValue: s.value.cost_usd,
-    fmt: fmtUsd,
-    unit: 'USD',
-    sub: `${fmtUsd(s.value.cost_per_1k_tokens_usd)} por 1K tokens`,
-    segments: buildRing((l) => l.cost_usd),
-    budget: 0,
-  },
-  {
-    key: 'energia',
-    label: 'Energía (est.)',
-    totalValue: s.value.energy_wh,
-    fmt: (n) => fmtDec(n),
-    unit: 'Wh',
-    sub: `${fmtDec(s.value.energy_wh_per_1k_tokens, 2)} Wh por 1K tokens`,
-    segments: buildRing((l) => l.energy_wh),
-    budget: 0,
-  },
-  {
-    key: 'co2',
-    label: 'CO₂e (est.)',
-    totalValue: s.value.co2_g,
-    fmt: fmtCo2,
-    unit: 'g CO₂e',
-    sub: `${fmtInt(s.value.co2_g_per_kwh)} g por kWh`,
-    segments: buildRing((l) => l.co2_g),
-    budget: 0,
-  },
-])
-
-// Un solo ref de hover para las 4 donas: { cardKey, loopName }.
-const hovered = ref(null)
-const isHovered = (cardKey, loopName) => hovered.value?.cardKey === cardKey && hovered.value?.loopName === loopName
-const isDimmed = (cardKey, loopName) => hovered.value?.cardKey === cardKey && hovered.value?.loopName !== loopName
-
-function hoveredSegment(card) {
-  if (hovered.value?.cardKey !== card.key) return null
-  return card.segments.find((seg) => seg.name === hovered.value.loopName) || null
-}
-const centerValue = (card) => {
-  const seg = hoveredSegment(card)
-  return card.fmt(seg ? seg.value : card.totalValue)
-}
-const centerPill = (card) => {
-  const seg = hoveredSegment(card)
-  return seg ? `${seg.shortName} · ${seg.pct}%` : card.unit
-}
-
-// La cifra central se achica según su largo para que nunca toque el anillo.
-function centerSizeClass(text) {
-  const len = String(text).length
-  if (len <= 4) return 'text-[1.7rem]'
-  if (len <= 6) return 'text-[1.3rem]'
-  return 'text-[1.05rem]'
-}
-
-// --- Dona "Tasa de verificación" (afirmaciones verificadas / evaluadas) ------
-const verificationStats = computed(() => {
-  const verified = props.verification?.verified || 0
-  const discarded = props.verification?.discarded || 0
-  const total = verified + discarded
-  const pct = total > 0 ? Math.round((verified / total) * 100) : 0
-  const filled = total > 0 ? (verified / total) * CIRCUMFERENCE : 0
-  const dash = filled >= CIRCUMFERENCE ? CIRCUMFERENCE : Math.max(0, filled - SEGMENT_GAP)
-  return { verified, discarded, total, pct, dasharray: `${dash} ${CIRCUMFERENCE - dash}` }
-})
-
-// --- Línea "Estadísticas": tokens por paso ----------------------------------
-// Series: Total / Entrada / Salida. Paleta validada para fondo claro
-// (validate_palette.js --mode light: azul, coral, cian — todo PASS).
-const LINE_SERIES = [
-  { key: 'total_tokens', label: 'Total', color: '#2563eb' },
-  { key: 'prompt_tokens', label: 'Entrada', color: '#e5484d' },
-  { key: 'completion_tokens', label: 'Salida', color: '#0891b2' },
-]
-const W = 480
-const H = 200
-const PAD = { left: 46, right: 20, top: 16, bottom: 30 }
-const plotW = W - PAD.left - PAD.right
-const plotH = H - PAD.top - PAD.bottom
-
-const yMax = computed(() => {
-  const raw = Math.max(1, ...loops.value.flatMap((l) => LINE_SERIES.map((sr) => l[sr.key] || 0)))
+function niceMax(raw) {
+  if (!(raw > 0)) return 1
   const magnitude = 10 ** Math.floor(Math.log10(raw))
   return Math.ceil(raw / magnitude) * magnitude
-})
-const xAt = (i) => PAD.left + (loops.value.length > 1 ? (i / (loops.value.length - 1)) * plotW : plotW / 2)
-const yAt = (v) => PAD.top + plotH - (v / yMax.value) * plotH
-const yTicks = computed(() => [0, yMax.value / 2, yMax.value].map((v) => ({ v, y: yAt(v) })))
+}
+function tickLabel(v, prefix = '') {
+  if (v === 0) return `${prefix}0`
+  if (v >= 1000) return `${prefix}${Number((v / 1000).toFixed(1))}K`
+  if (v < 1) return `${prefix}${Number(v.toPrecision(2))}`
+  return `${prefix}${Number(v.toFixed(2))}`
+}
 
-// Curva monótona (Fritsch–Carlson): suave, pero sin "rebotes" que sugieran
-// valores intermedios que no existen.
+// --- Barras por paso (+ línea acumulada en tokens: misma escala, un solo eje)
+const BW = 260
+const BH = 176
+const PAD = { left: 40, right: 12, top: 14, bottom: 38 }
+const plotW = BW - PAD.left - PAD.right
+const plotH = BH - PAD.top - PAD.bottom
+const BAR_W = 26
+
+function barPath(x, y, w, h) {
+  const r = Math.min(4, h)
+  return `M ${x} ${y + h} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h} Z`
+}
+
+// Curva suave que no "rebota" (Fritsch–Carlson): no inventa valores intermedios.
 function smoothPath(points) {
   const n = points.length
   if (n < 2) return ''
@@ -199,219 +102,311 @@ function smoothPath(points) {
   return d
 }
 
-const lineSeries = computed(() =>
-  LINE_SERIES.map((sr) => {
-    const points = loops.value.map((l, i) => ({ x: xAt(i), y: yAt(l[sr.key] || 0), value: l[sr.key] || 0 }))
-    return { ...sr, points, path: smoothPath(points) }
-  }),
-)
+function buildBarPanel(def) {
+  const list = steps.value
+  const n = Math.max(1, list.length)
+  const values = list.map(def.get)
+  const total = values.reduce((a, b) => a + b, 0)
+  const cumulative = []
+  values.reduce((acc, v, i) => { cumulative[i] = acc + v; return acc + v }, 0)
+  const max = niceMax(def.cumulative ? Math.max(0, ...cumulative) : Math.max(0, ...values))
+  const band = plotW / n
+  const yOf = (v) => PAD.top + plotH - (v / max) * plotH
 
-const hoverStep = ref(null)
-const tooltipLeftPct = computed(() =>
-  hoverStep.value === null ? 0 : Math.min(78, Math.max(2, (xAt(hoverStep.value) / W) * 100 - 14)),
-)
-const fmtAxis = (v) => (v >= 1000 ? `${Number((v / 1000).toFixed(1))}K` : String(v))
+  const bars = list.map((st, i) => {
+    const value = values[i]
+    const h = Math.max(value > 0 ? 1.5 : 0, (value / max) * plotH)
+    const x = PAD.left + band * i + (band - BAR_W) / 2
+    return {
+      name: st.name,
+      short: st.short,
+      color: st.color,
+      value,
+      pct: total > 0 ? Math.round((value / total) * 100) : 0,
+      cx: x + BAR_W / 2,
+      path: h > 0 ? barPath(x, PAD.top + plotH - h, BAR_W, h) : '',
+      bandX: PAD.left + band * i,
+    }
+  })
+
+  let line = null
+  if (def.cumulative) {
+    const pts = list.map((_, i) => ({ x: PAD.left + band * (i + 0.5), y: yOf(cumulative[i]), value: cumulative[i] }))
+    line = { path: smoothPath(pts), points: pts }
+  }
+
+  return {
+    key: def.key,
+    title: def.title,
+    unit: def.unit,
+    fmt: def.fmt,
+    total,
+    bars,
+    line,
+    band,
+    ticks: [0, max / 2, max].map((v) => ({ v, y: yOf(v), label: tickLabel(v, def.prefix || '') })),
+    note: def.note,
+    budget: def.budget || 0,
+  }
+}
+
+const barPanels = computed(() => [
+  buildBarPanel({
+    key: 'tokens', title: 'Tokens por paso', unit: 'tokens', get: (l) => l.total_tokens, fmt: fmtInt,
+    cumulative: true, note: 'Barras: tokens de cada paso · línea: acumulado', budget: s.value.budget_total_tokens,
+  }),
+  buildBarPanel({
+    key: 'costo', title: 'Costo por paso', unit: 'USD', get: (l) => l.cost_usd, fmt: fmtUsd, prefix: '$',
+    note: `${fmtUsd(s.value.cost_per_1k_tokens_usd)} por 1K tokens`,
+  }),
+  buildBarPanel({
+    key: 'co2', title: 'CO₂e (est.) por paso', unit: 'g', get: (l) => l.co2_g, fmt: fmtCo2,
+    note: `Estimado: ${fmtInt(s.value.co2_g_per_kwh)} g CO₂e por kWh`,
+  }),
+])
+
+// --- Torta: energía (estimada) por paso ------------------------------------
+const PIE_C = 70
+const PIE_R = 62
+const polar = (angle, r) => [PIE_C + r * Math.sin(angle), PIE_C - r * Math.cos(angle)]
+
+const energyPie = computed(() => {
+  const list = steps.value
+  const total = list.reduce((sum, st) => sum + st.energy_wh, 0)
+  let angle = 0
+  const slices = list.map((st) => {
+    const share = total > 0 ? st.energy_wh / total : 0
+    const a0 = angle
+    const a1 = angle + share * Math.PI * 2
+    angle = a1
+    let path = ''
+    if (share >= 0.9999) {
+      path = `M ${PIE_C} ${PIE_C - PIE_R} A ${PIE_R} ${PIE_R} 0 1 1 ${PIE_C - 0.01} ${PIE_C - PIE_R} Z`
+    } else if (share > 0) {
+      const [x0, y0] = polar(a0, PIE_R)
+      const [x1, y1] = polar(a1, PIE_R)
+      path = `M ${PIE_C} ${PIE_C} L ${x0} ${y0} A ${PIE_R} ${PIE_R} 0 ${share > 0.5 ? 1 : 0} 1 ${x1} ${y1} Z`
+    }
+    const [lx, ly] = polar((a0 + a1) / 2, PIE_R * 0.62)
+    return {
+      name: st.name,
+      short: st.short,
+      color: st.color,
+      value: st.energy_wh,
+      pct: Math.round(share * 100),
+      path,
+      lx,
+      ly,
+      showLabel: share >= 0.07,
+    }
+  })
+  return { slices, total }
+})
+
+// --- Medidores con aguja ----------------------------------------------------
+const G_CX = 100
+const G_CY = 92
+const G_R = 70
+const gPoint = (p, r) => [G_CX - r * Math.cos(Math.PI * p), G_CY - r * Math.sin(Math.PI * p)]
+
+function buildGauge(def) {
+  const p = Math.min(1, Math.max(0, def.pct / 100))
+  const [ex, ey] = gPoint(p, G_R)
+  const [nx, ny] = gPoint(p, G_R - 6)
+  return {
+    ...def,
+    track: `M ${G_CX - G_R} ${G_CY} A ${G_R} ${G_R} 0 0 1 ${G_CX + G_R} ${G_CY}`,
+    fill: p > 0 ? `M ${G_CX - G_R} ${G_CY} A ${G_R} ${G_R} 0 0 1 ${ex} ${ey}` : '',
+    needle: { x: nx, y: ny },
+  }
+}
+
+const gauges = computed(() => {
+  const verified = props.verification?.verified || 0
+  const discarded = props.verification?.discarded || 0
+  const evaluated = verified + discarded
+  return [
+    buildGauge({
+      key: 'verif',
+      title: 'Tasa de verificación',
+      pct: evaluated > 0 ? Math.round((verified / evaluated) * 100) : 0,
+      color: 'var(--color-verdeEsm)',
+      sub: evaluated > 0 ? `${verified} de ${evaluated} afirmaciones verificadas` : 'sin afirmaciones evaluadas',
+      note: 'Falsabilidad 3/3 (Loop 1)',
+    }),
+    buildGauge({
+      key: 'poda',
+      title: 'Poda del Loop 2',
+      pct: Math.round(props.pruningPercent || 0),
+      color: 'var(--color-oro)',
+      sub: 'menos palabras que el borrador lógico',
+      note: 'Freno de mano (eco-eficiencia)',
+    }),
+  ]
+})
+
+// --- Lectura al pasar el mouse / tocar (una por panel) ----------------------
+const hover = ref(null) // { key, idx }
+const isOn = (key, idx) => hover.value?.key === key && hover.value?.idx === idx
+const isDim = (key, idx) => hover.value?.key === key && hover.value?.idx !== idx
+
+function barReadout(panel) {
+  if (hover.value?.key === panel.key) {
+    const b = panel.bars[hover.value.idx]
+    if (b) return `${b.name}: ${panel.fmt(b.value)} ${panel.unit} · ${b.pct}%`
+  }
+  return `Total ${panel.fmt(panel.total)} ${panel.unit}`
+}
+function pieReadout() {
+  if (hover.value?.key === 'energia') {
+    const sl = energyPie.value.slices[hover.value.idx]
+    if (sl) return `${sl.name}: ${fmtDec(sl.value)} Wh · ${sl.pct}%`
+  }
+  return `Total ${fmtDec(energyPie.value.total)} Wh`
+}
+
+const dataTable = computed(() => steps.value)
 </script>
 
 <template>
   <section class="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
     <header class="mb-3 flex flex-wrap items-center gap-2 px-1">
-      <h4 class="text-sm font-bold text-azulCorp">Métricas / Reporte Sostenible</h4>
+      <h4 class="text-sm font-bold text-azulCorp">Panel de KPI de sostenibilidad</h4>
       <span class="rounded-full bg-oro/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">ODS 12</span>
       <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
+
+      <div class="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span v-for="st in steps" :key="`lg-${st.name}`" class="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: st.color }"></span>{{ st.name }}
+        </span>
+      </div>
     </header>
 
-    <!-- Fila 1: línea "Estadísticas" + dona "Tasa de verificación" -->
-    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_14.5rem]">
-      <div class="min-w-0 rounded-xl border border-slate-100 bg-white p-4">
-        <h5 class="text-sm font-semibold text-azulCorp">Estadísticas</h5>
-        <div class="text-[11px] text-slate-500">Tokens por paso del protocolo</div>
+    <!-- Panel único con celdas separadas por líneas finas, como el panel de
+    referencia: 2 columnas en pantallas medianas, 1 en mobile. -->
+    <div class="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-2">
+      <!-- Barras por paso: tokens (con línea acumulada), costo y CO2e -->
+      <div v-for="panel in barPanels" :key="panel.key" class="min-w-0 bg-white p-3">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+          <h5 class="text-[13px] font-bold text-azulCorp">{{ panel.title }}</h5>
+          <span class="text-[11px] font-semibold text-slate-600">{{ barReadout(panel) }}</span>
+        </div>
+        <div class="text-[10px] text-slate-400">{{ panel.note }}</div>
 
-        <div class="relative mt-2">
-          <svg :viewBox="`0 0 ${W} ${H}`" class="h-auto w-full" role="img" aria-label="Tokens de entrada, salida y total en cada paso: reformulación, Loop 1 y Loop 2">
-            <g>
-              <template v-for="tick in yTicks" :key="tick.v">
-                <line :x1="PAD.left" :x2="W - PAD.right" :y1="tick.y" :y2="tick.y" stroke="#e2e8f0" stroke-width="1" />
-                <text :x="PAD.left - 8" :y="tick.y + 3.5" text-anchor="end" font-size="10" fill="#64748b">{{ fmtAxis(tick.v) }}</text>
-              </template>
-            </g>
+        <svg :viewBox="`0 0 ${BW} ${BH}`" class="mt-1 h-auto w-full" role="img"
+          :aria-label="`${panel.title}: ${panel.bars.map((b) => `${b.name} ${panel.fmt(b.value)} ${panel.unit}`).join(', ')}`">
+          <template v-for="tick in panel.ticks" :key="tick.v">
+            <line :x1="PAD.left" :x2="BW - PAD.right" :y1="tick.y" :y2="tick.y" stroke="#e2e8f0" stroke-width="1" />
+            <text :x="PAD.left - 6" :y="tick.y + 3" text-anchor="end" font-size="9" fill="#64748b">{{ tick.label }}</text>
+          </template>
 
-            <text
-              v-for="(l, i) in loops"
-              :key="`x-${l.name}`"
-              :x="xAt(i)"
-              :y="H - 9"
-              text-anchor="middle"
-              font-size="10.5"
-              fill="#64748b"
-            >{{ l.name }}</text>
+          <path
+            v-for="(b, i) in panel.bars"
+            :key="`bar-${b.name}`"
+            :d="b.path"
+            :fill="b.color"
+            :opacity="isDim(panel.key, i) ? 0.35 : 1"
+            class="transition-opacity duration-150"
+          />
 
-            <line
-              v-if="hoverStep !== null"
-              :x1="xAt(hoverStep)"
-              :x2="xAt(hoverStep)"
-              :y1="PAD.top"
-              :y2="PAD.top + plotH"
-              stroke="#cbd5e1"
-              stroke-width="1"
-            />
-
-            <path
-              v-for="sr in lineSeries"
-              :key="sr.key"
-              :d="sr.path"
-              fill="none"
-              :stroke="sr.color"
+          <template v-if="panel.line">
+            <path :d="panel.line.path" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <circle
+              v-for="(p, i) in panel.line.points"
+              :key="`pt-${i}`"
+              :cx="p.x"
+              :cy="p.y"
+              r="4"
+              fill="#0f172a"
+              stroke="#fff"
               stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
             />
+          </template>
 
-            <template v-for="sr in lineSeries" :key="`dots-${sr.key}`">
-              <circle
-                v-for="(p, i) in sr.points"
-                v-show="i === sr.points.length - 1 || i === hoverStep"
-                :key="`${sr.key}-${i}`"
-                :cx="p.x"
-                :cy="p.y"
-                r="4.5"
-                :fill="sr.color"
-                stroke="#fff"
-                stroke-width="2"
-              />
-            </template>
-
+          <g v-for="(b, i) in panel.bars" :key="`xl-${b.name}`">
+            <text :x="b.cx" :y="BH - 21" text-anchor="middle" font-size="9.5" fill="#64748b">{{ b.short }}</text>
+            <text :x="b.cx" :y="BH - 8" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">{{ panel.fmt(b.value) }}</text>
             <rect
-              v-for="(l, i) in loops"
-              :key="`hit-${l.name}`"
-              :x="xAt(i) - plotW / (2 * Math.max(1, loops.length - 1))"
+              :x="b.bandX"
               :y="PAD.top"
-              :width="plotW / Math.max(1, loops.length - 1)"
-              :height="plotH + 14"
+              :width="panel.band"
+              :height="BH - PAD.top"
               fill="transparent"
               class="cursor-pointer"
-              @mouseenter="hoverStep = i"
-              @mouseleave="hoverStep = null"
-              @click="hoverStep = hoverStep === i ? null : i"
+              @mouseenter="hover = { key: panel.key, idx: i }"
+              @mouseleave="hover = null"
+              @click="hover = isOn(panel.key, i) ? null : { key: panel.key, idx: i }"
             />
-          </svg>
-
-          <div
-            v-if="hoverStep !== null"
-            class="pointer-events-none absolute top-1 z-10 min-w-[8.5rem] rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-md"
-            :style="{ left: `${tooltipLeftPct}%` }"
-          >
-            <div class="mb-1 font-semibold text-azulCorp">{{ loops[hoverStep].name }}</div>
-            <div v-for="sr in LINE_SERIES" :key="`tt-${sr.key}`" class="flex items-center justify-between gap-3 text-slate-600">
-              <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: sr.color }"></span>{{ sr.label }}
-              </span>
-              <span class="font-semibold text-azulCorp">{{ fmtInt(loops[hoverStep][sr.key]) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span v-for="sr in LINE_SERIES" :key="`lg-${sr.key}`" class="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <span class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: sr.color }"></span>{{ sr.label }}
-          </span>
-        </div>
-      </div>
-
-      <div class="flex flex-col rounded-xl border border-slate-100 bg-white p-4">
-        <h5 class="text-sm font-semibold text-azulCorp">Tasa de verificación</h5>
-        <div class="relative mx-auto mt-3 h-32 w-32 shrink-0">
-          <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90" role="img" :aria-label="`Tasa de verificación: ${verificationStats.pct}%, ${verificationStats.verified} afirmaciones verificadas de ${verificationStats.total}`">
-            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-slate-200)" :stroke-width="RING_WIDTH" />
-            <circle
-              v-if="verificationStats.total > 0"
-              cx="60"
-              cy="60"
-              r="50"
-              fill="none"
-              :stroke-width="RING_WIDTH"
-              stroke="var(--color-verdeEsm)"
-              :stroke-dasharray="verificationStats.dasharray"
-            >
-              <title>{{ verificationStats.verified }} verificadas de {{ verificationStats.total }} evaluadas</title>
-            </circle>
-          </svg>
-          <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span class="text-[1.7rem] font-extrabold leading-none text-azulCorp">{{ verificationStats.pct }}<span class="ml-0.5 text-base font-bold">%</span></span>
-          </div>
-        </div>
-        <div class="mx-auto mt-3 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">
-          {{ verificationStats.total ? `${verificationStats.verified} de ${verificationStats.total} afirmaciones` : 'sin afirmaciones evaluadas' }}
-        </div>
-        <div class="mt-2 text-center text-[10px] leading-snug text-slate-400">Falsabilidad 3/3 (Loop 1)</div>
-      </div>
-    </div>
-
-    <!-- Fila 2: una dona por métrica, SIEMPRE las 4 visibles (2x2 en mobile) -->
-    <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div
-        v-for="card in metricCards"
-        :key="card.key"
-        class="flex min-w-0 flex-col rounded-xl border border-slate-100 bg-white p-4"
-      >
-        <h5 class="text-sm font-semibold text-azulCorp">{{ card.label }}</h5>
-
-        <div class="relative mx-auto mt-3 h-28 w-28 shrink-0 sm:h-[7.5rem] sm:w-[7.5rem]">
-          <svg viewBox="0 0 120 120" class="h-full w-full -rotate-90" role="img" :aria-label="`${card.label}: ${card.fmt(card.totalValue)} ${card.unit}, por paso: ${card.segments.map((s2) => `${s2.name} ${s2.pct}%`).join(', ')}`">
-            <circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-slate-200)" :stroke-width="RING_WIDTH" />
-            <circle
-              v-for="seg in card.segments"
-              :key="seg.name"
-              cx="60"
-              cy="60"
-              r="50"
-              fill="none"
-              :stroke-width="RING_WIDTH"
-              stroke-linecap="butt"
-              :stroke="seg.color"
-              :stroke-dasharray="seg.dasharray"
-              :stroke-dashoffset="seg.dashoffset"
-              :opacity="isDimmed(card.key, seg.name) ? 0.3 : 1"
-              class="cursor-pointer transition-opacity duration-150"
-              @mouseenter="hovered = { cardKey: card.key, loopName: seg.name }"
-              @mouseleave="hovered = null"
-              @click="hovered = isHovered(card.key, seg.name) ? null : { cardKey: card.key, loopName: seg.name }"
-            >
-              <title>{{ seg.name }}: {{ card.fmt(seg.value) }} {{ card.unit }} ({{ seg.pct }}%)</title>
-            </circle>
-          </svg>
-          <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-5 text-center">
-            <span class="font-extrabold leading-none text-azulCorp" :class="centerSizeClass(centerValue(card))">{{ centerValue(card) }}</span>
-          </div>
-        </div>
-
-        <div class="mx-auto mt-3 max-w-full truncate rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">
-          {{ centerPill(card) }}
-        </div>
-
-        <div class="mt-2.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-          <span
-            v-for="seg in card.segments"
-            :key="`dot-${card.key}-${seg.name}`"
-            class="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium text-slate-500 transition-colors"
-            :class="isHovered(card.key, seg.name) ? 'bg-slate-100 text-azulCorp' : ''"
-            @mouseenter="hovered = { cardKey: card.key, loopName: seg.name }"
-            @mouseleave="hovered = null"
-          >
-            <span class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: seg.color }"></span>
-            {{ seg.shortName }}
-          </span>
-        </div>
-
-        <div v-if="card.sub" class="mt-2 text-center text-[10px] leading-snug text-slate-400">{{ card.sub }}</div>
+          </g>
+        </svg>
 
         <div
-          v-if="card.budget"
-          class="mx-auto mt-2 rounded-full px-2 py-0.5 text-[10px] font-bold"
-          :class="overBudget(card.totalValue, card.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
+          v-if="panel.budget"
+          class="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold"
+          :class="overBudget(panel.total, panel.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
         >
-          {{ overBudget(card.totalValue, card.budget) ? `${fmtDec(ratio(card.totalValue, card.budget), 1)}× el umbral` : 'dentro del umbral' }}
+          {{ overBudget(panel.total, panel.budget) ? `${fmtDec(ratio(panel.total, panel.budget), 1)}× el umbral del protocolo (${fmtInt(panel.budget)})` : 'dentro del umbral del protocolo' }}
         </div>
+      </div>
+
+      <!-- Torta: energía estimada por paso -->
+      <div class="min-w-0 bg-white p-3">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+          <h5 class="text-[13px] font-bold text-azulCorp">% de energía (est.) por paso</h5>
+          <span class="text-[11px] font-semibold text-slate-600">{{ pieReadout() }}</span>
+        </div>
+        <div class="text-[10px] text-slate-400">{{ fmtDec(s.energy_wh_per_1k_tokens, 2) }} Wh por 1K tokens (estimado)</div>
+
+        <div class="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          <svg viewBox="0 0 140 140" class="h-36 w-36 shrink-0" role="img"
+            :aria-label="`Energía por paso: ${energyPie.slices.map((sl) => `${sl.name} ${sl.pct}%`).join(', ')}`">
+            <path
+              v-for="(sl, i) in energyPie.slices"
+              :key="`sl-${sl.name}`"
+              :d="sl.path"
+              :fill="sl.color"
+              stroke="#fff"
+              stroke-width="2"
+              :opacity="isDim('energia', i) ? 0.35 : 1"
+              class="cursor-pointer transition-opacity duration-150"
+              @mouseenter="hover = { key: 'energia', idx: i }"
+              @mouseleave="hover = null"
+              @click="hover = isOn('energia', i) ? null : { key: 'energia', idx: i }"
+            />
+            <template v-for="sl in energyPie.slices" :key="`lb-${sl.name}`">
+              <text v-if="sl.showLabel" :x="sl.lx" :y="sl.ly + 4" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" class="pointer-events-none"
+                style="paint-order: stroke; stroke: rgba(15,23,42,0.45); stroke-width: 2px;">{{ sl.pct }}%</text>
+            </template>
+          </svg>
+
+          <ul class="space-y-1.5 text-[11px] text-slate-600">
+            <li v-for="(sl, i) in energyPie.slices" :key="`li-${sl.name}`" class="flex items-center gap-2 rounded px-1"
+              :class="isOn('energia', i) ? 'bg-slate-100' : ''"
+              @mouseenter="hover = { key: 'energia', idx: i }" @mouseleave="hover = null">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: sl.color }"></span>
+              <span class="w-24">{{ sl.name }}</span>
+              <span class="font-bold text-azulCorp">{{ fmtDec(sl.value) }} Wh</span>
+              <span class="text-slate-400">{{ sl.pct }}%</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Medidores con aguja -->
+      <div v-for="g in gauges" :key="g.key" class="min-w-0 bg-white p-3">
+        <h5 class="text-[13px] font-bold text-azulCorp">{{ g.title }}</h5>
+        <div class="text-[10px] text-slate-400">{{ g.note }}</div>
+
+        <svg viewBox="0 0 200 118" class="mx-auto mt-1 h-auto w-full max-w-[16rem]" role="img" :aria-label="`${g.title}: ${g.pct}%, ${g.sub}`">
+          <path :d="g.track" fill="none" stroke="var(--color-slate-200)" stroke-width="16" />
+          <path v-if="g.fill" :d="g.fill" fill="none" :stroke="g.color" stroke-width="16" />
+          <line :x1="G_CX" :y1="G_CY" :x2="g.needle.x" :y2="g.needle.y" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" />
+          <circle :cx="G_CX" :cy="G_CY" r="5" fill="#dc2626" stroke="#fff" stroke-width="2" />
+          <text :x="G_CX - G_R" :y="G_CY + 14" text-anchor="middle" font-size="9" fill="#64748b">0</text>
+          <text :x="G_CX + G_R" :y="G_CY + 14" text-anchor="middle" font-size="9" fill="#64748b">100</text>
+          <text :x="G_CX" :y="G_CY + 27" text-anchor="middle" font-size="22" font-weight="800" font-style="italic" fill="#0f172a">{{ g.pct }}%</text>
+        </svg>
+        <div class="text-center text-[11px] text-slate-500">{{ g.sub }}</div>
       </div>
     </div>
 
@@ -432,7 +427,7 @@ const fmtAxis = (v) => (v >= 1000 ? `${Number((v / 1000).toFixed(1))}K` : String
             </tr>
           </thead>
           <tbody>
-            <tr v-for="l in loops" :key="`row-${l.name}`" class="border-b border-slate-50">
+            <tr v-for="l in dataTable" :key="`row-${l.name}`" class="border-b border-slate-50">
               <td class="py-1 pr-3 font-medium text-azulCorp">{{ l.name }}</td>
               <td class="py-1 pr-3">{{ fmtInt(l.prompt_tokens) }}</td>
               <td class="py-1 pr-3">{{ fmtInt(l.completion_tokens) }}</td>
@@ -450,7 +445,7 @@ const fmtAxis = (v) => (v >= 1000 ? `${Number((v / 1000).toFixed(1))}K` : String
       <strong class="font-semibold text-slate-600">Tokens y costo</strong> son medidos (los reporta la API del modelo).
       <strong class="font-semibold text-slate-600">Energía y CO₂e</strong> son estimaciones a partir de coeficientes de
       referencia, no una medición directa del proveedor. El umbral es el del protocolo AOPCCPS+IA. Pasa el mouse (o toca)
-      el anillo, la leyenda o la línea para ver el detalle por paso.
+      una barra o porción para ver el detalle por paso.
     </div>
   </section>
 </template>
