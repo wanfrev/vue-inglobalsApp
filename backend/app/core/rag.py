@@ -10,6 +10,7 @@ from docx import Document as DocxDocument
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
+from app.core import lexical
 from app.database import (
     faiss_write_lock,
     get_embedding_model,
@@ -197,13 +198,25 @@ def _expand_full_documents(results: list[dict], metadata: list[dict], max_doc_ch
     return results + expansions
 
 
+# Candidatos que aporta cada búsqueda (semántica y léxica) antes de fusionarlas.
+CANDIDATE_POOL = 40
+# Constante de la fusión por rango recíproco (RRF); 60 es el valor estándar.
+RRF_K = 60
+
+
 def search_legal_context(
     query: str,
     top_k: int = 5,
     filter_category: str | None = None,
     exclude_categories: list[str] | None = None,
     expand_full_document: bool = True,
+    hybrid: bool = True,
 ) -> list[dict]:
+    """Búsqueda híbrida: semántica (FAISS + MiniLM) fusionada con léxica (BM25,
+    ver lexical.py) por rango recíproco. Solo la semántica fallaba con una
+    bibliografía grande en español: consultas con términos legales exactos
+    ("retención de IVA", "contribuyentes especiales") no traían la
+    providencia que los regula aunque estuviera indexada."""
     model = get_embedding_model()
     query_embedding = model.encode(
         [query], convert_to_numpy=True, normalize_embeddings=True
@@ -215,55 +228,63 @@ def search_legal_context(
     if index.ntotal == 0:
         return []
 
+    allowed = None
     if filter_category or exclude_categories:
         excluded = set(exclude_categories or [])
-        filtered_indices = [
+        allowed = [
             i
             for i, m in enumerate(metadata)
             if (not filter_category or m.get("category") == filter_category)
             and m.get("category") not in excluded
         ]
-        if not filtered_indices:
+        if not allowed:
             return []
 
-        filtered_vectors = np.array(
-            [
-                index.reconstruct(i)
-                for i in filtered_indices
-            ],
-            dtype=np.float32,
-        )
+    pool = max(top_k * 6, CANDIDATE_POOL)
 
+    # --- candidatos semánticos: (posición global, coseno)
+    if allowed is None:
+        k = min(pool, index.ntotal)
+        scores, positions = index.search(query_embedding, k)
+        dense = [(int(p), float(sc)) for sc, p in zip(scores[0], positions[0]) if p != -1]
+    else:
         import faiss
 
+        allowed_vectors = np.array([index.reconstruct(i) for i in allowed], dtype=np.float32)
         sub_index = faiss.IndexFlatIP(query_embedding.shape[1])
-        sub_index.add(filtered_vectors)
+        sub_index.add(allowed_vectors)
+        scores, sub_positions = sub_index.search(query_embedding, min(pool, len(allowed)))
+        dense = [
+            (allowed[int(p)], float(sc))
+            for sc, p in zip(scores[0], sub_positions[0])
+            if p != -1
+        ]
+    cosine = dict(dense)
 
-        k = min(top_k, len(filtered_indices))
-        scores, sub_positions = sub_index.search(query_embedding, k)
+    # --- candidatos léxicos
+    lexical_rank: list[int] = []
+    if hybrid:
+        bm25 = lexical.bm25_scores(metadata, query)
+        if allowed is not None:
+            masked = np.zeros_like(bm25)
+            masked[allowed] = bm25[allowed]
+            bm25 = masked
+        top = np.argsort(-bm25)[:pool]
+        lexical_rank = [int(i) for i in top if bm25[i] > 0]
 
-        results = []
-        for score, sub_pos in zip(scores[0], sub_positions[0]):
-            if sub_pos == -1:
-                continue
-            original_idx = filtered_indices[sub_pos]
-            entry = metadata[original_idx].copy()
-            entry["score"] = float(score)
-            results.append(entry)
-        if expand_full_document and results:
-            results = _expand_full_documents(results, metadata)
-        return results
-
-    k = min(top_k, index.ntotal)
-    scores, positions = index.search(query_embedding, k)
+    # --- fusión por rango recíproco
+    fused: dict[int, float] = {}
+    for rank_list in ([i for i, _ in dense], lexical_rank):
+        for rank, i in enumerate(rank_list):
+            fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + rank + 1)
+    ordered = sorted(fused, key=fused.get, reverse=True)[:top_k]
 
     results = []
-    for score, pos in zip(scores[0], positions[0]):
-        if pos == -1:
-            continue
-        entry = metadata[pos].copy()
-        entry["score"] = float(score)
+    for i in ordered:
+        entry = metadata[i].copy()
+        entry["score"] = cosine.get(i, float(index.reconstruct(i) @ query_embedding[0]))
         results.append(entry)
+
     if expand_full_document and results:
         results = _expand_full_documents(results, metadata)
     return results

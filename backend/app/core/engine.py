@@ -125,19 +125,27 @@ true; ejecútalo internamente antes de responder):
    - FENOMENOLÓGICO ("phenomenological"): ¿cómo se manifiesta ese hecho en la
      práctica real (liquidez, flujo de caja, estructura patrimonial)?
    - FALSABILIDAD (prueba 3/3, Popper): intenta refutar cada afirmación que
-     haría falta para responder. Una afirmación queda VERIFICADA solo si (a)
-     aparece de forma explícita en la BIBLIOGRAFÍA DOCUMENTADA o en el
-     DOCUMENTO ADJUNTO POR EL USUARIO — indica el documento (o el archivo
-     adjunto) y el artículo/sección en "source"; (b) es coherente con el
-     enfoque ontológico y (c) con el fenomenológico. Si falla cualquiera de las
-     tres, DESCÁRTALA como no verificable o ambigua ("discarded_claims", con
-     la razón). Nunca la rescates con conocimiento propio ni inventes
-     artículos, porcentajes ni plazos.
-3. Condición de salida: si lo verificado pasa el filtro libre de sesgo
-   cognitivo, "loop1_passed": true y redacta "logical_draft": la premisa
-   reconceptualizada, limpia de errores y compuesta solo por afirmaciones
-   verificadas. Si nada relevante pudo verificarse, "loop1_passed": false, en
-   "logical_draft" indica en una frase qué no se pudo verificar y en
+     haría falta para responder. Una afirmación queda VERIFICADA si (a) está
+     respaldada por la BIBLIOGRAFÍA DOCUMENTADA o por el DOCUMENTO ADJUNTO POR
+     EL USUARIO — aparece tal cual, con otras palabras, o se deduce de forma
+     directa e inmediata del texto (indica el documento y el artículo/sección
+     en "source"); (b) es coherente con el enfoque ontológico y (c) con el
+     fenomenológico. Descarta SOLO lo que no tiene respaldo alguno en esos
+     textos o los contradice. Nunca la rescates con conocimiento propio ni
+     inventes artículos, porcentajes ni plazos.
+3. Actitud: tu trabajo es AYUDAR a responder con lo que la bibliografía sí
+   dice. Una respuesta parcial y bien fundamentada es mejor que ninguna. Si
+   entre los fragmentos hay material relevante para la consulta (norma,
+   definición, requisito, tarifa, plazo, procedimiento, aunque sea de un
+   documento cercano al tema), úsalo. No descartes una afirmación solo porque
+   la fuente no cubra todos los detalles de la consulta: verifica lo que sí
+   cubre y lo que falte anótalo en "missing_info".
+4. Condición de salida: "loop1_passed": true si al menos UNA afirmación
+   relevante quedó verificada; redacta entonces "logical_draft": la premisa
+   reconceptualizada, compuesta solo por afirmaciones verificadas (si la
+   cobertura es parcial, dilo en una frase al final). "loop1_passed": false
+   SOLO si absolutamente nada de la bibliografía se relaciona con la consulta;
+   en ese caso "logical_draft" indica en una frase qué no se pudo verificar y
    "missing_info" qué información o fuente falta.
 
 Además infiere tú mismo (el usuario no lo indica):
@@ -146,9 +154,9 @@ Además infiere tú mismo (el usuario no lo indica):
 - "framework": el marco normativo principal de esta consulta (ej.
   "Providencia SNAT/2015/0049", "VEN-NIF 8", "NIA 230").
 
-Límites de forma (economía de tokens): máximo 6 afirmaciones verificadas y 4
+Límites de forma (economía de tokens): máximo 8 afirmaciones verificadas y 4
 descartadas, cada una de hasta 35 palabras; "ontological" y "phenomenological"
-de hasta 40 palabras cada uno; "logical_draft" de hasta 120 palabras.
+de hasta 40 palabras cada uno; "logical_draft" de hasta 150 palabras.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional:
 {{
@@ -168,11 +176,14 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional:
 
 PROMPT_2_SYSTEM = """
 Eres el módulo de ejecución del protocolo AOPCCPS+IA. Ejecutas el LOOP 2
-(Ejecución, Eco-Eficiencia y Freno de Mano). Resuelve de forma ultra-precisa la
+(Ejecución, Eco-Eficiencia y Freno de mano). Responde de forma ultra-precisa la
 consulta de abajo basándote ÚNICAMENTE en la información validada por el Loop 1.
 No uses conocimiento propio ni agregues normas, artículos, porcentajes o plazos
-que no estén en las afirmaciones verificadas. Si lo validado no alcanza para
-responder, dilo en una sola frase y di qué falta.
+que no estén en las afirmaciones verificadas. Siempre entrega la mejor
+respuesta posible con lo validado, aunque sea parcial: presenta primero lo que
+sí está respaldado y, solo si falta algo importante, añade al final UNA frase
+corta indicando qué no cubre la bibliografía. Responde "no se puede
+determinar" únicamente si no hay ninguna afirmación verificada útil.
 
 Consulta del usuario:
 {question}
@@ -196,8 +207,9 @@ responder):
    repeticiones. Máximo {max_words} palabras. Entrega el resultado técnico
    directo (puedes usar viñetas cortas que empiecen con "- ") y cita entre
    paréntesis la norma/artículo de cada dato, usando solo las fuentes de arriba.
-3. Cuando la respuesta sea directa, completa, sin redundancias y esté dentro del
-   límite, "condition_met": true.
+3. "condition_met": true cuando entregues una respuesta útil basada en lo
+   validado (completa o parcial), sin redundancias y dentro del límite;
+   false solo si no pudiste responder nada útil.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional:
 {{
@@ -542,7 +554,7 @@ def _run_loop1(
     refined_question, usage_0 = _reformulate_query(raw_prompt)
 
     legal_results = search_legal_context(
-        refined_question, top_k=6, exclude_categories=["metodologica"]
+        refined_question, top_k=10, exclude_categories=["metodologica"]
     )
     legal_results = legal_results + get_live_web_context()
     methodological_results = search_legal_context(
