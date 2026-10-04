@@ -1,12 +1,28 @@
 <script setup>
-import { ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { simulate, startSession } from '../../services/api.js'
 import AnswerCard from './AnswerCard.vue'
+import ComparisonTable from './ComparisonTable.vue'
+import SustainabilityPanel from './SustainabilityPanel.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 import SurveyBanner from './SurveyBanner.vue'
 import { SURVEY_AT_QUERY_NUMBERS } from '../../constants.js'
 
 const messages = ref([])
+
+// Consultas de ejemplo para quien no sabe qué preguntar ni cómo se usa: al
+// tocar una, se escribe en el campo de texto lista para enviar con Enter.
+// Son las 6 consultas de referencia que definió el cliente (solo se corrigió
+// la ortografía; el texto es el suyo).
+const SUGGESTIONS = [
+  { tag: 'Normas de auditoría', text: 'En una auditoría en Venezuela se pueden utilizar las Normas Internacionales de Auditoría.' },
+  { tag: 'Facturación digital', text: 'El profesional independiente debe emitir las facturas digitales a sus clientes.' },
+  { tag: 'Información financiera', text: 'El contador público está obligado a revelar la información financiera para cumplir con los requisitos exigidos en algunas instituciones.' },
+  { tag: 'Reportes de sostenibilidad', text: '¿La información no financiera a revelar en los reportes de sostenibilidad posee un formato o esquema a seguir?' },
+  { tag: 'ODS y ASG', text: 'Los formatos o esquemas presentan la vinculación con los ODS y los ASG.' },
+  { tag: 'Contador y cliente', text: 'Está obligado el contador a revelar la información financiera a beneficio del cliente.' },
+]
+const textarea = ref(null)
 const showSurvey = ref(false)
 const isProcessing = ref(false)
 
@@ -20,6 +36,22 @@ const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024
 const attachedFile = ref(null)
 const attachmentError = ref('')
 const fileInput = ref(null)
+
+async function useSuggestion(text) {
+  promptText.value = text
+  await nextTick()
+  textarea.value?.focus()
+}
+
+// El campo crece con el texto (hasta un tope) para que una consulta de ejemplo
+// larga se vea completa antes de enviarla.
+watch(promptText, async () => {
+  await nextTick()
+  const el = textarea.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+})
 
 function canSimulate() {
   return promptText.value.trim().length > 0 && !isProcessing.value
@@ -98,6 +130,7 @@ async function send() {
         role: 'alert',
         text: result.out_of_scope_reason || 'Esta pregunta está fuera del alcance de este sistema (auditoría, cumplimiento legal y contable en Venezuela).',
         failedVar: 'Fuera de contexto',
+        sustainability: result.sustainability || null,
       })
       return
     }
@@ -125,14 +158,32 @@ async function send() {
     <div class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white/35 px-3 py-4 sm:px-8 sm:py-8">
       <div
         v-if="!messages.length"
-        class="mx-auto flex max-w-xl flex-col items-center justify-center py-12 text-center sm:py-16"
+        class="mx-auto flex w-full max-w-3xl flex-col items-center py-6 text-center sm:py-10"
       >
-        <div class="mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-slate-100 text-slate-400 shadow-[inset_4px_4px_8px_rgba(15,23,42,0.08),inset_-4px_-4px_8px_rgba(255,255,255,0.95)]">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <path d="m7 10 5-5 5 5" />
-            <path d="M12 5v12" />
+        <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-slate-100 text-oroOscuro shadow-[inset_4px_4px_8px_rgba(15,23,42,0.08),inset_-4px_-4px_8px_rgba(255,255,255,0.95)]">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7">
+            <path d="M12 3a9 9 0 0 0-9 9c0 2.1.7 4 2 5.5V21l3.5-1.7A9 9 0 1 0 12 3z" />
+            <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.2c-.7.4-1.1.9-1.1 1.6" />
+            <path d="M12 16.5h.01" />
           </svg>
+        </div>
+        <div class="text-lg font-extrabold text-azulCorp sm:text-xl">¿No sabes qué preguntar?</div>
+        <div class="mt-1 max-w-xl text-sm leading-relaxed text-slate-500">
+          Toca una consulta de ejemplo: se escribirá abajo y solo tienes que pulsar Enter. También puedes escribir la tuya
+          (auditoría, tributos, contabilidad en Venezuela) o adjuntar un documento con el clip.
+        </div>
+
+        <div class="mt-5 grid w-full gap-2.5 text-left sm:grid-cols-2">
+          <button
+            v-for="(sug, i) in SUGGESTIONS"
+            :key="i"
+            type="button"
+            class="group rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-oro/60 hover:bg-white hover:shadow-md focus:outline-none focus-visible:border-oro"
+            @click="useSuggestion(sug.text)"
+          >
+            <span class="inline-block rounded-full bg-oro/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">{{ sug.tag }}</span>
+            <span class="mt-1.5 block text-[13px] leading-snug text-azulCorp group-hover:text-oroOscuro">{{ sug.text }}</span>
+          </button>
         </div>
       </div>
 
@@ -160,9 +211,9 @@ async function send() {
         <AnswerCard v-else-if="msg.role === 'answer'" :result="msg.result" />
 
 
-        <!-- Alerta de rebote -->
+        <!-- Alerta de rebote (con sus gráficos si la consulta llegó a consumir) -->
+        <template v-else-if="msg.role === 'alert'">
         <div
-          v-else-if="msg.role === 'alert'"
           class="rounded-2xl border border-violetaIA/15 border-l-4 border-l-violetaIA bg-violetaIA/5 p-4"
         >
           <div class="mb-1 flex items-center gap-2">
@@ -176,6 +227,9 @@ async function send() {
           </div>
           <p class="break-words text-sm text-slate-700 whitespace-pre-line">{{ msg.text }}</p>
         </div>
+        <SustainabilityPanel v-if="msg.sustainability" :sustainability="msg.sustainability" />
+        <ComparisonTable v-if="msg.sustainability" />
+        </template>
 
       </div>
 
@@ -236,6 +290,7 @@ async function send() {
           </button>
 
           <textarea
+            ref="textarea"
             v-model="promptText"
             rows="1"
             placeholder="Escribe tu consulta..."

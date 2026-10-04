@@ -653,6 +653,10 @@ def run_simulation(
             "refined_question": refined_question,
             "attached_filename": attached_filename,
             "usage": _sum_usage(usage_0, usage_1).model_dump(),
+            # Los gráficos de consumo salen en TODA consulta, también en las
+            # fuera de alcance (a pedido del cliente): el Loop 2 no corrió, así
+            # que ese paso queda en cero.
+            "sustainability": _build_sustainability(usage_0, usage_1, UsageInfo()).model_dump(),
         }
 
     loop2, usage_2 = _run_loop2(refined_question, loop1)

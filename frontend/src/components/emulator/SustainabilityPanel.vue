@@ -37,10 +37,13 @@ const STEP_COLOR = {
 }
 const SHORT_STEP = { 'Reformulación': 'Reform.', 'Loop 1': 'Loop 1', 'Loop 2': 'Loop 2' }
 
+const NUM_FIELDS = ['prompt_tokens', 'completion_tokens', 'total_tokens', 'cost_usd', 'energy_wh', 'co2_g']
 const steps = computed(() =>
   loops.value.map((l) => ({
     ...l,
-    short: SHORT_STEP[l.name] || l.name,
+    ...Object.fromEntries(NUM_FIELDS.map((k) => [k, Number(l[k]) || 0])),
+    name: l.name || 'Paso',
+    short: SHORT_STEP[l.name] || l.name || 'Paso',
     color: STEP_COLOR[l.name] || '#94a3b8',
   })),
 )
@@ -57,7 +60,7 @@ function tickLabel(v, prefix = '') {
   return `${prefix}${Number(v.toFixed(2))}`
 }
 
-// --- Barras por paso (+ línea acumulada en tokens: misma escala, un solo eje)
+// --- Geometría común de las gráficas por paso
 const BW = 260
 const BH = 176
 const PAD = { left: 40, right: 12, top: 14, bottom: 38 }
@@ -107,9 +110,7 @@ function buildBarPanel(def) {
   const n = Math.max(1, list.length)
   const values = list.map(def.get)
   const total = values.reduce((a, b) => a + b, 0)
-  const cumulative = []
-  values.reduce((acc, v, i) => { cumulative[i] = acc + v; return acc + v }, 0)
-  const max = niceMax(def.cumulative ? Math.max(0, ...cumulative) : Math.max(0, ...values))
+  const max = niceMax(Math.max(0, ...values))
   const band = plotW / n
   const yOf = (v) => PAD.top + plotH - (v / max) * plotH
 
@@ -129,12 +130,6 @@ function buildBarPanel(def) {
     }
   })
 
-  let line = null
-  if (def.cumulative) {
-    const pts = list.map((_, i) => ({ x: PAD.left + band * (i + 0.5), y: yOf(cumulative[i]), value: cumulative[i] }))
-    line = { path: smoothPath(pts), points: pts }
-  }
-
   return {
     key: def.key,
     title: def.title,
@@ -142,19 +137,13 @@ function buildBarPanel(def) {
     fmt: def.fmt,
     total,
     bars,
-    line,
     band,
     ticks: [0, max / 2, max].map((v) => ({ v, y: yOf(v), label: tickLabel(v, def.prefix || '') })),
     note: def.note,
-    budget: def.budget || 0,
   }
 }
 
 const barPanels = computed(() => [
-  buildBarPanel({
-    key: 'tokens', title: 'Tokens por paso', unit: 'tokens', get: (l) => l.total_tokens, fmt: fmtInt,
-    cumulative: true, note: 'Barras: tokens de cada paso · línea: acumulado', budget: s.value.budget_total_tokens,
-  }),
   buildBarPanel({
     key: 'costo', title: 'Costo por paso', unit: 'USD', get: (l) => l.cost_usd, fmt: fmtUsd, prefix: '$',
     note: `${fmtUsd(s.value.cost_per_1k_tokens_usd)} por 1K tokens`,
@@ -164,6 +153,34 @@ const barPanels = computed(() => [
     note: `Estimado: ${fmtInt(s.value.co2_g_per_kwh)} g CO₂e por kWh`,
   }),
 ])
+
+// --- Tokens: solo líneas con puntos (a pedido del cliente) -----------------
+// Series: Total / Entrada / Salida en cada paso. Paleta validada para fondo
+// claro (validate_palette.js --mode light: azul, coral, cian — todo PASS).
+const LINE_SERIES = [
+  { key: 'total_tokens', label: 'Total', color: '#2563eb' },
+  { key: 'prompt_tokens', label: 'Entrada', color: '#e5484d' },
+  { key: 'completion_tokens', label: 'Salida', color: '#0891b2' },
+]
+
+const tokensLine = computed(() => {
+  const list = steps.value
+  const n = Math.max(1, list.length)
+  const max = niceMax(Math.max(0, ...list.flatMap((st) => LINE_SERIES.map((sr) => st[sr.key]))))
+  const band = plotW / n
+  const yOf = (v) => PAD.top + plotH - (v / max) * plotH
+  const series = LINE_SERIES.map((sr) => {
+    const points = list.map((st, i) => ({ x: PAD.left + band * (i + 0.5), y: yOf(st[sr.key]), value: st[sr.key] }))
+    return { ...sr, points, path: smoothPath(points) }
+  })
+  return {
+    series,
+    band,
+    steps: list.map((st, i) => ({ name: st.name, short: st.short, cx: PAD.left + band * (i + 0.5), bandX: PAD.left + band * i, total: st.total_tokens })),
+    ticks: [0, max / 2, max].map((v) => ({ v, y: yOf(v), label: tickLabel(v) })),
+    budget: s.value.budget_total_tokens,
+  }
+})
 
 // --- Torta: energía (estimada) por paso ------------------------------------
 const PIE_C = 70
@@ -257,6 +274,13 @@ function barReadout(panel) {
   }
   return `Total ${panel.fmt(panel.total)} ${panel.unit}`
 }
+function tokensReadout() {
+  if (hover.value?.key === 'tokens') {
+    const st = steps.value[hover.value.idx]
+    if (st) return `${st.name}: entrada ${fmtInt(st.prompt_tokens)} · salida ${fmtInt(st.completion_tokens)} · total ${fmtInt(st.total_tokens)}`
+  }
+  return `Total ${fmtInt(s.value.total_tokens)} tokens`
+}
 function pieReadout() {
   if (hover.value?.key === 'energia') {
     const sl = energyPie.value.slices[hover.value.idx]
@@ -285,7 +309,86 @@ const dataTable = computed(() => steps.value)
     <!-- Panel único con celdas separadas por líneas finas, como el panel de
     referencia: 2 columnas en pantallas medianas, 1 en mobile. -->
     <div class="grid gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-2">
-      <!-- Barras por paso: tokens (con línea acumulada), costo y CO2e -->
+      <!-- Tokens: solo líneas con puntos -->
+      <div class="min-w-0 bg-white p-3">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-2">
+          <h5 class="text-[13px] font-bold text-azulCorp">Tokens por paso</h5>
+          <span class="text-[11px] font-semibold text-slate-600">{{ tokensReadout() }}</span>
+        </div>
+        <div class="text-[10px] text-slate-400">Entrada, salida y total en cada paso del protocolo</div>
+
+        <svg :viewBox="`0 0 ${BW} ${BH}`" class="mt-1 h-auto w-full" role="img"
+          :aria-label="`Tokens por paso: ${steps.map((st) => `${st.name} entrada ${fmtInt(st.prompt_tokens)}, salida ${fmtInt(st.completion_tokens)}, total ${fmtInt(st.total_tokens)}`).join('; ')}`">
+          <template v-for="tick in tokensLine.ticks" :key="tick.v">
+            <line :x1="PAD.left" :x2="BW - PAD.right" :y1="tick.y" :y2="tick.y" stroke="#e2e8f0" stroke-width="1" />
+            <text :x="PAD.left - 6" :y="tick.y + 3" text-anchor="end" font-size="9" fill="#64748b">{{ tick.label }}</text>
+          </template>
+
+          <line
+            v-if="hover?.key === 'tokens' && tokensLine.steps[hover.idx]"
+            :x1="tokensLine.steps[hover.idx].cx"
+            :x2="tokensLine.steps[hover.idx].cx"
+            :y1="PAD.top"
+            :y2="PAD.top + plotH"
+            stroke="#cbd5e1"
+            stroke-width="1"
+          />
+
+          <path
+            v-for="sr in tokensLine.series"
+            :key="`ln-${sr.key}`"
+            :d="sr.path"
+            fill="none"
+            :stroke="sr.color"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <template v-for="sr in tokensLine.series" :key="`dots-${sr.key}`">
+            <circle
+              v-for="(p, i) in sr.points"
+              :key="`${sr.key}-${i}`"
+              :cx="p.x"
+              :cy="p.y"
+              r="4.5"
+              :fill="sr.color"
+              stroke="#fff"
+              stroke-width="2"
+            />
+          </template>
+
+          <g v-for="(st, i) in tokensLine.steps" :key="`xl-${st.name}`">
+            <text :x="st.cx" :y="BH - 21" text-anchor="middle" font-size="9.5" fill="#64748b">{{ st.short }}</text>
+            <text :x="st.cx" :y="BH - 8" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">{{ fmtInt(st.total) }}</text>
+            <rect
+              :x="st.bandX"
+              :y="PAD.top"
+              :width="tokensLine.band"
+              :height="BH - PAD.top"
+              fill="transparent"
+              class="cursor-pointer"
+              @mouseenter="hover = { key: 'tokens', idx: i }"
+              @mouseleave="hover = null"
+              @click="hover = isOn('tokens', i) ? null : { key: 'tokens', idx: i }"
+            />
+          </g>
+        </svg>
+
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span v-for="sr in tokensLine.series" :key="`lg-${sr.key}`" class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: sr.color }"></span>{{ sr.label }}
+          </span>
+          <span
+            v-if="tokensLine.budget"
+            class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+            :class="overBudget(s.total_tokens, tokensLine.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
+          >
+            {{ overBudget(s.total_tokens, tokensLine.budget) ? `${fmtDec(ratio(s.total_tokens, tokensLine.budget), 1)}× el umbral del protocolo (${fmtInt(tokensLine.budget)})` : 'dentro del umbral del protocolo' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Barras por paso: costo y CO2e -->
       <div v-for="panel in barPanels" :key="panel.key" class="min-w-0 bg-white p-3">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2">
           <h5 class="text-[13px] font-bold text-azulCorp">{{ panel.title }}</h5>
@@ -309,20 +412,6 @@ const dataTable = computed(() => steps.value)
             class="transition-opacity duration-150"
           />
 
-          <template v-if="panel.line">
-            <path :d="panel.line.path" fill="none" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <circle
-              v-for="(p, i) in panel.line.points"
-              :key="`pt-${i}`"
-              :cx="p.x"
-              :cy="p.y"
-              r="4"
-              fill="#0f172a"
-              stroke="#fff"
-              stroke-width="2"
-            />
-          </template>
-
           <g v-for="(b, i) in panel.bars" :key="`xl-${b.name}`">
             <text :x="b.cx" :y="BH - 21" text-anchor="middle" font-size="9.5" fill="#64748b">{{ b.short }}</text>
             <text :x="b.cx" :y="BH - 8" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">{{ panel.fmt(b.value) }}</text>
@@ -339,14 +428,6 @@ const dataTable = computed(() => steps.value)
             />
           </g>
         </svg>
-
-        <div
-          v-if="panel.budget"
-          class="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold"
-          :class="overBudget(panel.total, panel.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
-        >
-          {{ overBudget(panel.total, panel.budget) ? `${fmtDec(ratio(panel.total, panel.budget), 1)}× el umbral del protocolo (${fmtInt(panel.budget)})` : 'dentro del umbral del protocolo' }}
-        </div>
       </div>
 
       <!-- Torta: energía estimada por paso -->

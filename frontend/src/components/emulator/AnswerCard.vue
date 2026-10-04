@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { exportSimulation } from '../../services/api.js'
 import SustainabilityPanel from './SustainabilityPanel.vue'
+import ComparisonTable from './ComparisonTable.vue'
 import { FEEDBACK_FORM_URL } from '../../constants.js'
 
 const props = defineProps({
@@ -20,6 +21,42 @@ const consultedSources = computed(() => {
 })
 
 const pruningPercent = computed(() => Math.round((loop2.value.pruning_ratio || 0) * 100))
+
+// Expedientes guardados antes de las métricas por paso no traen "sustainability":
+// se reconstruye un solo paso con el uso total, para que los gráficos salgan
+// siempre. Coeficientes = valores por defecto del backend (config.py).
+const ENERGY_WH_PER_1K_TOKENS = 0.3
+const CO2_G_PER_KWH = 400
+const sustainabilityData = computed(() => {
+  if (props.result.sustainability) return props.result.sustainability
+  const u = props.result.usage
+  if (!u) return null
+  const total = u.total_tokens || 0
+  const energy = (total / 1000) * ENERGY_WH_PER_1K_TOKENS
+  const co2 = (energy / 1000) * CO2_G_PER_KWH
+  const cost = u.estimated_cost_usd || 0
+  return {
+    loops: [{
+      name: 'Consulta',
+      prompt_tokens: u.prompt_tokens || 0,
+      completion_tokens: u.completion_tokens || 0,
+      total_tokens: total,
+      cost_usd: cost,
+      energy_wh: energy,
+      co2_g: co2,
+    }],
+    prompt_tokens: u.prompt_tokens || 0,
+    completion_tokens: u.completion_tokens || 0,
+    total_tokens: total,
+    cost_usd: cost,
+    cost_per_1k_tokens_usd: total ? (cost / total) * 1000 : 0,
+    energy_wh: energy,
+    co2_g: co2,
+    budget_total_tokens: 500,
+    energy_wh_per_1k_tokens: ENERGY_WH_PER_1K_TOKENS,
+    co2_g_per_kwh: CO2_G_PER_KWH,
+  }
+})
 
 const verification = computed(() => ({
   verified: loop1.value.verified_claims?.length || 0,
@@ -312,6 +349,8 @@ async function copyShareText() {
       </div>
     </details>
 
-    <SustainabilityPanel v-if="result.sustainability" :sustainability="result.sustainability" :verification="verification" :pruning-percent="pruningPercent" />
+    <!-- Gráficos en TODA consulta, y al final el cuadro comparativo. -->
+    <SustainabilityPanel v-if="sustainabilityData" :sustainability="sustainabilityData" :verification="verification" :pruning-percent="pruningPercent" />
+    <ComparisonTable />
   </div>
 </template>
