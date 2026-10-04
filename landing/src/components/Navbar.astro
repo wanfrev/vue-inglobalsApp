@@ -1,5 +1,10 @@
 ---
+import { Image } from "astro:assets";
+import iaasLogo from "../assets/iaas-logo.png";
 
+// En producción, PUBLIC_SIMULATOR_URL apunta a https://inglobals.com/simulador
+// (ver DEPLOY_VPS.md); sin esa variable cae al simulador del mismo dominio.
+const simuladorUrl = import.meta.env.PUBLIC_SIMULATOR_URL || "/simulador/";
 ---
 
 <nav class="fixed inset-x-0 top-4 z-50">
@@ -35,6 +40,19 @@
             ></span>
           </a>
         </div>
+
+        <!-- Acceso directo al simulador: escudo + nombre (solo el escudo en
+        pantallas muy angostas, para que quepa junto al menú). -->
+        <a
+          href={simuladorUrl}
+          aria-label="Simulador Sostenible (IA)"
+          class="group/sim inline-flex rounded-full bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] p-[2px] shadow-[0_0_18px_rgba(212,175,55,0.45)] transition-transform duration-300 hover:scale-105 hover:shadow-[0_0_26px_rgba(212,175,55,0.65)]"
+        >
+          <span class="inline-flex items-center gap-2 rounded-full bg-white px-2 py-1 sm:pl-2.5 sm:pr-4">
+            <Image src={iaasLogo} alt="" class="h-7 w-auto object-contain sm:h-8" />
+            <span class="hidden whitespace-nowrap text-sm font-extrabold tracking-tight text-blue-950 sm:inline">Simulador Sostenible (IA)</span>
+          </span>
+        </a>
 
         <details class="relative md:hidden group">
           <summary

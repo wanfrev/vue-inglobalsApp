@@ -4,7 +4,27 @@ import Layout from "../layouts/Layout.astro";
 import fedecamaras from "../assets/fedecamaras.png";
 import federacion from "../assets/federacion.jpeg";
 import codigo from "../assets/codigo.jpeg";
-import metodos from "../assets/metodos.jpeg";
+import iaasLogo from "../assets/iaas-logo.png";
+
+// Comparativa operacional (contenido provisto por el cliente). Cada fila trae
+// el valor de cada modelo en el mismo orden que `modelos`.
+const modelos = [
+  { nombre: "Simulador Sostenible", detalle: "", propio: true },
+  { nombre: "ChatGPT", detalle: "(Estándar Generalista)" },
+  { nombre: "Claude", detalle: "(Analítico y Preciso)" },
+  { nombre: "Gemini", detalle: "(Información y Síntesis)" },
+  { nombre: "DeepSeek", detalle: "(Eficiencia)" },
+];
+const criterios: [string, number[]][] = [
+  ["Objetividad", [95, 85, 90, 82, 80]],
+  ["Precisión de Reestructuración", [98, 80, 85, 78, 75]],
+  ["Eficiencia (Consumo de Tokens)", [30, 90, 85, 92, 94]],
+  ["Eficacia (Corrección)", [95, 85, 90, 82, 80]],
+  ["Efectividad (Utilidad Gerencial)", [70, 85, 88, 80, 78]],
+  ["Economía (Relación Costo/Beneficio)", [30, 90, 85, 92, 94]],
+  ["Generación de Métricas Sostenibles ODS/ASG", [100, 0, 0, 0, 0]],
+  ["Gestión y operacionalidad académica", [96, 88, 92, 85, 86]],
+];
 ---
 
 <Layout title="Inicio">
@@ -57,20 +77,63 @@ import metodos from "../assets/metodos.jpeg";
         </div>
       </section>
 
-      <section id="servicios" class="grid md:grid-cols-2 gap-8 md:gap-10 items-start">
-        <div class="flex min-w-0 items-center justify-center order-2 md:order-1">
-          <div class="rounded-xl overflow-hidden bg-white shadow-xl p-4 w-full max-w-full h-[360px] md:h-[480px] flex items-center justify-center">
-            <!-- "h-full w-auto" dejaba que la imagen (ancha, un panel de KPI)
-            impusiera su ancho natural en vez de respetar el contenedor: en
-            mobile eso desbordaba la página de lado a lado. "max-h-full
-            max-w-full" + "min-w-0" en el padre fuerza a que se achique en
-            las dos direcciones, y object-contain mantiene su proporción. -->
-            <Image src={metodos} alt="Métodos" loading="lazy" class="max-h-full max-w-full w-auto h-auto object-contain" />
+      <section id="servicios" class="grid gap-8 md:gap-10 items-start">
+        <div class="flex min-w-0 order-1">
+          <!-- "min-w-0" + overflow-x-auto en el contenedor de la tabla: en
+          mobile solo la tabla se desliza de lado, la página no se desborda. -->
+          <div class="w-full min-w-0 rounded-xl bg-white p-3 shadow-xl sm:p-5">
+            <h3 class="text-center text-base font-extrabold leading-snug text-blue-950 sm:text-lg">
+              Comparativa Operacional del Modelo<br />Simulador Sostenible + IA
+            </h3>
+
+            <div class="mt-4 overflow-x-auto">
+              <table class="w-full table-fixed border-collapse text-[9.5px] text-slate-800 sm:text-xs lg:text-sm">
+                <caption class="sr-only">Comparativa operacional del Simulador Sostenible + IA frente a ChatGPT, Claude, Gemini y DeepSeek</caption>
+                <thead>
+                  <tr class="align-bottom">
+                    <th scope="col" class="w-[21%] border border-slate-300 px-1 py-2 text-left font-semibold sm:w-[24%] sm:px-2">Criterio / Evaluación</th>
+                    {modelos.map((m) => (
+                      <th
+                        scope="col"
+                        class:list={["border border-slate-300 px-0.5 py-2 text-center font-semibold leading-tight sm:px-1.5", m.propio && "bg-amber-50"]}
+                      >
+                        {m.propio && <Image src={iaasLogo} alt="" class="mx-auto mb-1 h-8 w-auto object-contain sm:h-10" />}
+                        <span class="block text-blue-950">{m.nombre}</span>
+                        {m.detalle && <span class="hidden font-normal text-slate-600 sm:block">{m.detalle}</span>}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {criterios.map(([criterio, valores]) => (
+                    <tr class="odd:bg-white even:bg-slate-50/60">
+                      <th scope="row" class="border border-slate-300 px-1 py-1.5 text-left font-medium break-words hyphens-auto sm:px-2" lang="es">{criterio}</th>
+                      {valores.map((v, i) => (
+                        <td
+                          class:list={["border border-slate-300 px-0.5 py-1.5 text-center tabular-nums sm:px-1.5", modelos[i].propio && "bg-amber-50 font-bold text-blue-950"]}
+                        >
+                          {v}%
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-4 space-y-3 text-justify text-[11px] leading-relaxed text-slate-700 sm:text-xs lg:text-sm">
+              <div>
+                <strong class="text-blue-950">Nota técnica:</strong> El protocolo (<strong>AOPCCPS+IA</strong>) del Simulador Sostenible + IA, opera con una arquitectura de especialista, priorizando la precisión técnica, la gobernanza digital y la falsabilidad legal sobre la eficiencia lingüística.
+              </div>
+              <div>
+                En contraste, las IA generalistas (como ChatGPT o Gemini) utilizan arquitecturas optimizadas para la velocidad de respuesta, el uso reducido de tokens y la comunicación conversacional, lo que las hace más eficaces en métricas de "economía" y "eficiencia" pero menos precisas en la reestructuración metodológica.
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="flex flex-col order-1 md:order-2">
-          <div class="p-6 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-500 group h-[360px] md:h-[480px] flex flex-col justify-center">
+        <div class="flex flex-col order-2">
+          <div class="p-6 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-500 group h-auto flex flex-col justify-center">
             <div class="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-950 transition-colors">
               <svg class="w-6 h-6 text-blue-900 group-hover:text-[#D4AF37]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M21 11c0 5-8 11-11 11S3 16 3 11 10 2 12 2s9 3 9 9z" fill="currentColor"></path>
@@ -88,7 +151,7 @@ import metodos from "../assets/metodos.jpeg";
 
         </div>
 
-          <div class="md:col-span-2 grid md:grid-cols-2 gap-8 mt-6 order-3">
+          <div class="grid md:grid-cols-2 gap-8 mt-6 order-3">
           <div class="p-4 bg-white border-b-4 border-slate-100 hover:border-[#D4AF37] rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-500 group">
             <div class="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-950 transition-colors">
               <svg class="w-5 h-5 text-blue-900 group-hover:text-[#D4AF37]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
