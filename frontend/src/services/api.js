@@ -31,7 +31,20 @@ export function setToken(token) {
   }
 }
 
-async function request(endpoint, options = {}) {
+async function throwFromResponse(res) {
+  // Si el servidor ni alcanzó a responder con JSON (típico de un 502/504 de
+  // Nginx cuando el backend tardó de más), res.statusText da un
+  // "Gateway Time-out" pelado que no le dice nada al usuario.
+  const err = await res.json().catch(() => ({}))
+  const gatewayMessage = [502, 503, 504].includes(res.status)
+    ? 'El servidor tardó demasiado en responder o no está disponible. Intenta de nuevo en un momento.'
+    : null
+  const error = new Error(err.detail || gatewayMessage || res.statusText || `Error ${res.status}`)
+  error.status = res.status
+  throw error
+}
+
+async function authorizedFetch(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`
   const headers = options.headers || {}
 
@@ -48,20 +61,24 @@ async function request(endpoint, options = {}) {
     ...options,
     headers,
   })
+  if (!res.ok) await throwFromResponse(res)
+  return res
+}
 
-  if (!res.ok) {
-    // Si el servidor ni alcanzó a responder con JSON (típico de un 502/504 de
-    // Nginx cuando el backend tardó de más), res.statusText da un
-    // "Gateway Time-out" pelado que no le dice nada al usuario.
-    const err = await res.json().catch(() => ({}))
-    const gatewayMessage = [502, 503, 504].includes(res.status)
-      ? 'El servidor tardó demasiado en responder o no está disponible. Intenta de nuevo en un momento.'
-      : null
-    const error = new Error(err.detail || gatewayMessage || res.statusText || `Error ${res.status}`)
-    error.status = res.status
-    throw error
-  }
+async function request(endpoint, options = {}) {
+  const res = await authorizedFetch(endpoint, options)
   return res.json()
+}
+
+export function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export function healthCheck() {
@@ -103,6 +120,36 @@ export function getSimulation(expedienteId) {
   return request(`/api/v1/history/${expedienteId}`)
 }
 
-export function exportSimulation(expedienteId) {
-  return request(`/api/v1/history/${expedienteId}/export`)
+// Descarga de la respuesta (o del modelo generado) en PDF — a pedido del
+// cliente nunca se descarga en JSON. El servidor arma el PDF con la consulta,
+// la respuesta y la bibliografía consultada (sin la trazabilidad interna).
+export async function downloadAnswerPdf(expedienteId) {
+  const res = await authorizedFetch(`/api/v1/history/${expedienteId}/export`)
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename="?([^";]+)"?/)
+  saveBlob(await res.blob(), match ? match[1] : `respuesta-${expedienteId}.pdf`)
+}
+
+// URL pública de descarga de una ley de la bibliografía (solo las que tienen
+// original disponible; ver `downloadable` en las fuentes de cada respuesta).
+export function documentDownloadUrl(docId) {
+  return `${BASE_URL}/api/v1/documents/${docId}/download`
+}
+
+// Flujo en dos pasos: 1) reformulación + Loop 1 -> el usuario decide cómo
+// seguir; 2) respuesta final / búsqueda externa / generar un modelo.
+export function simulateStart({ prompt, file }) {
+  const formData = new FormData()
+  formData.append('prompt', prompt)
+  if (file) formData.append('file', file)
+  return request('/api/v1/simulate/start', { method: 'POST', body: formData })
+}
+
+export function simulateFinalize({ draftId, mode, kind = '', file = null }) {
+  const formData = new FormData()
+  formData.append('draft_id', draftId)
+  formData.append('mode', mode)
+  if (kind) formData.append('kind', kind)
+  if (file) formData.append('file', file)
+  return request('/api/v1/simulate/finalize', { method: 'POST', body: formData })
 }

@@ -6,3 +6,7 @@ export const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScaMV
 // Consultas (respuestas válidas, sin contar las fuera de alcance) tras las
 // cuales se invita a completar el cuestionario.
 export const SURVEY_AT_QUERY_NUMBERS = [3, 4]
+
+// Nombre del motor de búsqueda externa que se muestra al usuario (triangulación
+// con el proveedor de IA configurado en el backend; hoy DeepSeek).
+export const EXTERNAL_ENGINE_LABEL = 'DeepSeek'

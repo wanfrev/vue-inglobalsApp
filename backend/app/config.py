@@ -87,6 +87,24 @@ class Settings(BaseSettings):
     # presupuesto; documentos más largos se truncan con una nota visible.
     ATTACHMENT_MAX_CHARS: int = 8000
 
+    # Generación de modelos (plan de cuentas / estados financieros) con el
+    # proveedor de IA: salida larga y documento anterior adjunto más extenso
+    # que un adjunto de consulta normal.
+    MODEL_MAX_TOKENS: int = 6000
+    MODEL_ATTACHMENT_MAX_CHARS: int = 30000
+
+    # Clave de administración (opcional) para subir/borrar documentos de la
+    # bibliografía y adjuntarles su archivo original. Vacía = sin protección
+    # (comportamiento histórico). En producción conviene definirla en .env:
+    # los endpoints de bibliografía no piden login y cualquiera que conozca la
+    # URL podría subir o borrar documentos. Se envía en el header X-Admin-Key.
+    ADMIN_API_KEY: str = ""
+
+    # Carpeta (en la raíz del repo, junto a backend/) con las leyes originales:
+    # sus archivos son los que el usuario puede DESCARGAR. El resto de la
+    # bibliografía (manuales, libros con derechos de autor) no se ofrece.
+    LAWS_DIR_NAME: str = "Biblioteca_Leyes_Vzla"
+
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     # DATA_DIR es override-able con la variable de entorno DATA_DIR — en
     # Render (o cualquier host con disco persistente) debe apuntar a la ruta

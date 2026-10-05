@@ -22,6 +22,9 @@ class SourceUsed(BaseModel):
     category: str
     framework: str = ""
     score: float = 0.0
+    # Para ofrecer la descarga de la ley (ver app/core/originals.py).
+    doc_id: str = ""
+    downloadable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +40,45 @@ class RefinedQuery(_LenientModel):
     cual (ver `_reformulate_query` en engine.py)."""
 
     refined_question: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Búsqueda externa (triangulación con el modelo de IA) y generación de modelos
+# — pasos opcionales que el usuario elige tras el Loop 1.
+# ---------------------------------------------------------------------------
+
+class ExternalClaim(_LenientModel):
+    claim: str
+    basis: str = ""
+    confidence: str = ""
+
+
+class ExternalResult(_LenientModel):
+    """Lo que el modelo aporta desde su conocimiento general para cubrir lo que
+    falta en la bibliografía. Nunca se presenta como verificado."""
+
+    external_claims: list[ExternalClaim] = []
+    caveat: str = ""
+
+
+class ModelDocResult(_LenientModel):
+    title: str = ""
+    content: str = ""
+    notes: str = ""
+
+
+class ExternalInfo(BaseModel):
+    used: bool = False
+    claims: list[str] = []
+    caveat: str = ""
+
+
+class ModelDocument(BaseModel):
+    kind: str = ""
+    title: str = ""
+    content: str = ""
+    notes: str = ""
+    based_on_attachment: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +220,13 @@ class SimulateResponse(BaseModel):
     loop2: Loop2Output | None = None
     sustainability: Sustainability | None = None
     usage: UsageInfo = UsageInfo()
+    # Flujo en dos pasos: /simulate/start devuelve un borrador (draft_id) y el
+    # usuario decide cómo seguir; "model_kind" indica si la consulta pide un
+    # modelo (plan de cuentas / estados financieros) para ofrecer generarlo.
+    draft_id: str = ""
+    model_kind: str = ""
+    external: ExternalInfo | None = None
+    model_document: ModelDocument | None = None
     # Sin límite de consultas (a pedido del cliente) — "free_queries_used" ya
     # no se compara contra ningún tope, queda solo como contador informativo.
     free_queries_used: int = 0

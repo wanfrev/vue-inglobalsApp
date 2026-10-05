@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { exportSimulation } from '../../services/api.js'
+import { documentDownloadUrl, downloadAnswerPdf } from '../../services/api.js'
 import SustainabilityPanel from './SustainabilityPanel.vue'
 import ComparisonTable from './ComparisonTable.vue'
 import { FEEDBACK_FORM_URL } from '../../constants.js'
@@ -15,10 +15,22 @@ const loop1 = computed(() => props.result.loop1 || {})
 const loop2 = computed(() => props.result.loop2 || {})
 const entity = computed(() => ENTITY_LABELS[props.result.entity_type] || props.result.entity_type)
 
+// Bibliografía consultada, sin repetir títulos. Las leyes con archivo original
+// disponible traen `downloadable` y se pueden descargar (solo leyes, no el
+// resto del catálogo).
 const consultedSources = computed(() => {
-  const titles = (props.result.sources_used || []).map((s) => s.title)
-  return [...new Set(titles)]
+  const seen = new Set()
+  const list = []
+  for (const src of props.result.sources_used || []) {
+    if (!src.title || seen.has(src.title)) continue
+    seen.add(src.title)
+    list.push(src)
+  }
+  return list
 })
+
+const externalInfo = computed(() => (props.result.external?.used ? props.result.external : null))
+const modelDocument = computed(() => props.result.model_document || null)
 
 const pruningPercent = computed(() => Math.round((loop2.value.pruning_ratio || 0) * 100))
 
@@ -72,21 +84,15 @@ const isDownloading = ref(false)
 const downloadError = ref('')
 const shareFeedback = ref('')
 
+// Descarga en PDF (a pedido del cliente nunca en JSON): la consulta, la
+// respuesta y la bibliografía consultada — sin la trazabilidad interna. Si la
+// consulta generó un modelo, el PDF es ese documento.
 async function downloadAnswer() {
   if (!props.result.expediente_id) return
   isDownloading.value = true
   downloadError.value = ''
   try {
-    const fullRecord = await exportSimulation(props.result.expediente_id)
-    const blob = new Blob([JSON.stringify(fullRecord, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `memoria-tecnica-${props.result.expediente_id}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    await downloadAnswerPdf(props.result.expediente_id)
   } catch (error) {
     downloadError.value = error.message || 'No se pudo descargar'
   } finally {
@@ -220,6 +226,40 @@ async function copyShareText() {
       </div>
     </article>
 
+    <!-- Búsqueda externa (el usuario la eligió tras el Loop 1): lo que aporta NO
+    está verificado en la bibliografía y se rotula así de forma visible. -->
+    <div v-if="externalInfo" class="rounded-2xl border border-azulCorp/20 bg-azulCorp/5 px-4 py-3 text-xs text-azulCorp">
+      <div class="text-[10px] font-bold uppercase tracking-wide text-azulCorp/70">
+        Complemento de búsqueda externa — no verificado en la bibliografía
+      </div>
+      <ul class="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed">
+        <li v-for="(claim, i) in externalInfo.claims" :key="i" class="break-words">{{ claim }}</li>
+      </ul>
+      <div v-if="externalInfo.caveat" class="mt-1.5 italic text-azulCorp/70">{{ externalInfo.caveat }}</div>
+    </div>
+
+    <!-- Modelo generado (plan de cuentas / estados financieros) -->
+    <div v-if="modelDocument" class="rounded-2xl border border-oro/40 bg-white p-4 shadow-sm sm:p-5">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[10px] font-bold uppercase tracking-wide text-oroOscuro">Modelo generado</div>
+          <div class="break-words text-sm font-bold text-azulCorp">{{ modelDocument.title }}</div>
+          <div v-if="modelDocument.based_on_attachment" class="text-[11px] text-slate-500">
+            Actualizado a partir de tu documento: {{ modelDocument.based_on_attachment }}
+          </div>
+        </div>
+        <button
+          @click="downloadAnswer"
+          :disabled="isDownloading"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#996515] to-[#D4AF37] px-3 py-2 text-xs font-bold text-white shadow-md transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ isDownloading ? 'Descargando...' : 'Descargar modelo en PDF' }}
+        </button>
+      </div>
+      <pre class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-3 font-sans text-xs leading-relaxed text-slate-700">{{ modelDocument.content }}</pre>
+      <div v-if="modelDocument.notes" class="mt-2 text-[11px] italic text-slate-500">{{ modelDocument.notes }}</div>
+    </div>
+
     <!-- Descargar y Compartir: libres para todos, sin cuenta paga. -->
     <div class="flex flex-wrap items-center gap-2 text-[11px]">
       <button
@@ -232,7 +272,7 @@ async function copyShareText() {
           <path d="m7 10 5 5 5-5" />
           <path d="M12 15V3" />
         </svg>
-        {{ isDownloading ? 'Descargando...' : 'Descargar' }}
+        {{ isDownloading ? 'Descargando...' : 'Descargar PDF' }}
       </button>
 
       <!-- Compartir: en celular con Web Share, shareAnswer() abre el panel
@@ -344,7 +384,23 @@ async function copyShareText() {
 
         <div v-if="consultedSources.length">
           <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Bibliografía consultada</div>
-          <div class="break-words text-slate-500">{{ consultedSources.join(' · ') }}</div>
+          <ul class="space-y-1 text-slate-500">
+            <li v-for="src in consultedSources" :key="src.title" class="flex flex-wrap items-center gap-x-2 break-words">
+              <span>{{ src.title }}</span>
+              <a
+                v-if="src.downloadable && src.doc_id"
+                :href="documentDownloadUrl(src.doc_id)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 rounded-md border border-oro/40 bg-oro/5 px-1.5 py-0.5 text-[10px] font-bold text-oroOscuro hover:bg-oro/15"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" />
+                </svg>
+                Descargar ley
+              </a>
+            </li>
+          </ul>
         </div>
       </div>
     </details>

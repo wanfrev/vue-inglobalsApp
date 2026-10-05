@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { exportSimulation } from '../../services/api.js'
+import { downloadAnswerPdf } from '../../services/api.js'
 
 const props = defineProps({
   entries: Array
@@ -19,23 +19,10 @@ const fmtUsd = (n) => {
 // Los expedientes anteriores a las métricas de energía quedaron en 0.
 const fmtEnergy = (n) => (Number(n || 0) > 0 ? `${Number(n).toFixed(2)} Wh` : '—')
 
-function triggerDownload(payload, filename) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
 async function downloadEntry(entry) {
   downloadError.value = ''
   try {
-    const record = await exportSimulation(entry.id)
-    triggerDownload(record, `memoria-tecnica-${entry.id}.json`)
+    await downloadAnswerPdf(entry.id)
   } catch (error) {
     downloadError.value = error.message || 'No se pudo descargar'
   }
@@ -93,8 +80,8 @@ async function downloadEntry(entry) {
 
               <button
                 class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
-                title="Descargar memoria técnica"
-                aria-label="Descargar memoria técnica"
+                title="Descargar en PDF"
+                aria-label="Descargar en PDF"
                 @click.stop="downloadEntry(entry)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
@@ -149,8 +136,8 @@ async function downloadEntry(entry) {
 
           <button
             class="rounded-lg p-2 text-oro transition-colors hover:bg-oro/10 hover:text-oroOscuro"
-            title="Descargar memoria técnica"
-            aria-label="Descargar memoria técnica"
+            title="Descargar en PDF"
+            aria-label="Descargar en PDF"
             @click.stop="downloadEntry(entry)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">

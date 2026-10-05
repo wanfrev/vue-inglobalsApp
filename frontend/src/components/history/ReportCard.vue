@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { exportSimulation } from '../../services/api.js'
+import { downloadAnswerPdf } from '../../services/api.js'
 import AnswerCard from '../emulator/AnswerCard.vue'
 
 defineEmits(['close'])
@@ -16,16 +16,7 @@ async function downloadCertificate() {
   isDownloading.value = true
   downloadError.value = ''
   try {
-    const fullRecord = await exportSimulation(props.entry.id)
-    const blob = new Blob([JSON.stringify(fullRecord, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `memoria-tecnica-${props.entry?.id || 'expediente'}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    await downloadAnswerPdf(props.entry.id)
   } catch (error) {
     downloadError.value = error.message || 'No se pudo descargar'
   } finally {
@@ -73,7 +64,7 @@ async function downloadCertificate() {
           <path d="M12 12v6" />
           <path d="m9.5 15.5 2.5 2.5 2.5-2.5" />
         </svg>
-        {{ isDownloading ? 'Descargando...' : 'Descargar memoria técnica' }}
+        {{ isDownloading ? 'Descargando...' : 'Descargar en PDF' }}
       </button>
       <p v-if="downloadError" class="mt-2 text-xs font-medium text-oroOscuro">{{ downloadError }}</p>
     </template>

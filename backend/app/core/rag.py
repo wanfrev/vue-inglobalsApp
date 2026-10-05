@@ -53,7 +53,7 @@ def load_document_text(file_path: Path) -> str:
     raise ValueError(f"Tipo de archivo no soportado para indexar: '{file_path.suffix}'")
 
 
-def extract_attachment_text(filename: str, content: bytes) -> str:
+def extract_attachment_text(filename: str, content: bytes, max_chars: int | None = None) -> str:
     """Extrae el texto de un archivo adjunto a UNA consulta puntual del chat
     (a pedido del cliente) — a diferencia de index_document(), esto NO se
     guarda ni se indexa en la bibliografía compartida: es contexto efímero
@@ -84,8 +84,9 @@ def extract_attachment_text(filename: str, content: bytes) -> str:
             "real? Por ahora no se soporta reconocimiento óptico (OCR)."
         )
 
-    if len(text) > settings.ATTACHMENT_MAX_CHARS:
-        text = text[: settings.ATTACHMENT_MAX_CHARS] + "\n[...documento truncado por longitud...]"
+    limit = max_chars or settings.ATTACHMENT_MAX_CHARS
+    if len(text) > limit:
+        text = text[:limit] + "\n[...documento truncado por longitud...]"
 
     return text
 

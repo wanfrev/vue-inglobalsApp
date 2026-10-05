@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -8,14 +9,17 @@ from openai import APIConnectionError, APIStatusError, OpenAI
 from pydantic import BaseModel, ValidationError
 
 from app.config import settings
+from app.core.originals import is_downloadable
 from app.core.rag import search_legal_context
 from app.core.web_sources import get_live_web_context
 from app.database import get_today_cost_usd, insert_simulation
 from app.models.schemas import (
+    ExternalResult,
     Loop1Result,
     Loop2Output,
     Loop2Result,
     LoopMetric,
+    ModelDocResult,
     RefinedQuery,
     Sustainability,
     UsageInfo,
@@ -179,7 +183,8 @@ Eres el módulo de ejecución del protocolo AOPCCPS+IA. Ejecutas el LOOP 2
 (Ejecución, Eco-Eficiencia y Freno de mano). Responde de forma ultra-precisa la
 consulta de abajo basándote ÚNICAMENTE en la información validada por el Loop 1.
 No uses conocimiento propio ni agregues normas, artículos, porcentajes o plazos
-que no estén en las afirmaciones verificadas. Siempre entrega la mejor
+que no estén en las afirmaciones verificadas (única excepción: el "Complemento
+de búsqueda externa" de más abajo, si existe). Siempre entrega la mejor
 respuesta posible con lo validado, aunque sea parcial: presenta primero lo que
 sí está respaldado y, solo si falta algo importante, añade al final UNA frase
 corta indicando qué no cubre la bibliografía. Responde "no se puede
@@ -198,7 +203,7 @@ Afirmaciones verificadas, con su fuente:
 
 Información faltante detectada en el Loop 1:
 {missing_info}
-
+{external_block}
 Loop 2 — Freno de mano y poda semántica (ejecútalo internamente antes de
 responder):
 1. Evalúa el peso algorítmico de tu respuesta: cada palabra debe aportar.
@@ -215,6 +220,92 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional:
 {{
   "final_answer": "Respuesta técnica final, podada",
   "condition_met": true/false
+}}
+"""
+
+PROMPT_EXT_SYSTEM = """
+Eres el módulo de búsqueda externa del simulador de Inglobals. El Loop 1 ya
+verificó contra la bibliografía documentada lo que pudo; tu tarea es la
+TRIANGULACIÓN: aportar, desde tu conocimiento general de contabilidad,
+tributación, auditoría y normativa venezolana e internacional, la información
+que FALTA para responder la consulta (ver "Información faltante" y las
+afirmaciones descartadas).
+
+Reglas estrictas:
+- Cubre SOLO lo que falta o quedó sin verificar. No repitas lo ya verificado.
+- Sé concreto y cita la norma o fuente por su nombre, número y año cuando la
+  conozcas.
+- NO inventes números de artículo, porcentajes, plazos ni fechas. Si no estás
+  seguro de un dato, dilo en la propia afirmación ("no confirmado") o no lo
+  incluyas. Tu información puede estar desactualizada.
+- Máximo 6 afirmaciones, de hasta 40 palabras cada una, en español.
+- "confidence": "alta", "media" o "baja" según qué tan seguro estés.
+
+Consulta (pregunta ya reformulada):
+{question}
+
+Afirmaciones verificadas en la bibliografía (no las repitas):
+{verified_claims}
+
+Información faltante detectada:
+{missing_info}
+
+Afirmaciones descartadas por no tener respaldo en la bibliografía:
+{discarded_claims}
+
+Responde ÚNICAMENTE con este JSON, sin texto adicional:
+{{
+  "external_claims": [{{"claim": "Afirmación", "basis": "Norma o fuente (o 'conocimiento general')", "confidence": "alta|media|baja"}}],
+  "caveat": "Una frase de advertencia sobre los límites de esta información externa"
+}}
+"""
+
+MODEL_LABELS = {
+    "plan_cuentas": "plan de cuentas",
+    "estados_financieros": "estado de situación financiera (estados financieros)",
+}
+
+PROMPT_MODEL_SYSTEM = """
+Eres el generador de modelos contables del simulador de Inglobals (Venezuela).
+Tu tarea: producir un MODELO de {kind_label} completo, listo para usar como
+punto de partida, basado en la bibliografía documentada de abajo (marcos
+VEN-NIF / NIIF para PYMES / NIIF plenas y los modelos de referencia cargados).
+
+Petición del usuario (tal como la escribió):
+{request}
+
+Pregunta reformulada:
+{refined_question}
+
+BIBLIOGRAFÍA DOCUMENTADA (úsala como base de estructura, códigos, partidas y
+terminología; incluye los modelos de referencia cargados):
+{legal_context}
+
+DOCUMENTO ANTERIOR DEL USUARIO (si no hay, no existe uno anterior):
+{old_document}
+
+Instrucciones:
+1. Si hay documento anterior: ACTUALÍZALO según lo pedido y la bibliografía,
+   conservando sus partidas/cuentas propias y su orden. Marca al final de la
+   línea "(NUEVO)" en lo que añadas y "(MODIFICADO)" en lo que ajustes.
+   Si no hay documento anterior: genera un modelo nuevo completo.
+2. Formato de texto plano, sin tablas Markdown ni símbolos decorativos:
+   - Títulos de sección en su propia línea, empezando con "# ".
+   - Cada cuenta o partida en su línea, con código jerárquico y sangría por
+     nivel (ejemplo: "1.1.1 Efectivo y equivalentes de efectivo").
+   - Para estados financieros: encabezado (entidad, fecha o período, moneda),
+     activo, pasivo, patrimonio y notas reveladoras; cada partida como
+     "código Concepto | Nota | período actual | período anterior" con
+     montos "0,00" como marcador.
+3. No inventes cifras de una entidad real: usa marcadores. Cita en una línea
+   final "Base normativa:" los marcos de la bibliografía en los que te apoyas.
+4. Extensión: lo necesario para que el modelo sea útil, sin relleno.
+
+Responde ÚNICAMENTE con este JSON, sin texto adicional:
+{{
+  "title": "Título del documento",
+  "content": "El documento completo en texto plano (usa \\n para los saltos de línea)",
+  "notes": "Una frase sobre supuestos o qué debe revisar el usuario"
 }}
 """
 
@@ -264,15 +355,24 @@ def _format_legal_context(
 
 
 def _sources_from_results(legal_results: list[dict]) -> list[dict]:
-    return [
-        {
-            "title": r.get("title", "Sin título"),
-            "category": r.get("category", ""),
-            "framework": "",
-            "score": r.get("score", 0.0),
-        }
-        for r in legal_results
-    ]
+    sources, seen = [], set()
+    for r in legal_results:
+        doc_id = r.get("id", "")
+        key = doc_id or r.get("title", "")
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append(
+            {
+                "title": r.get("title", "Sin título"),
+                "category": r.get("category", ""),
+                "framework": "",
+                "score": r.get("score", 0.0),
+                "doc_id": doc_id,
+                "downloadable": bool(doc_id) and is_downloadable(doc_id, r.get("file_name", "")),
+            }
+        )
+    return sources
 
 
 def _get_providers() -> list[dict]:
@@ -333,7 +433,7 @@ def _estimate_cost(prompt_tokens: int, completion_tokens: int, price_input: floa
 
 
 def _call_deepseek(
-    system_prompt: str, user_prompt: str, response_model: type[BaseModel]
+    system_prompt: str, user_prompt: str, response_model: type[BaseModel], max_tokens: int | None = None
 ) -> tuple[BaseModel, UsageInfo]:
     """Llama al proveedor de IA configurado (y a un proveedor de respaldo si
     hay uno configurado en AI_FALLBACK_* y el principal falla del todo) y
@@ -362,7 +462,7 @@ def _call_deepseek(
                         {"role": "user", "content": user_prompt},
                     ],
                     temperature=settings.AI_TEMPERATURE,
-                    max_tokens=settings.AI_MAX_TOKENS,
+                    max_tokens=max_tokens or settings.AI_MAX_TOKENS,
                     response_format={"type": "json_object"},
                 )
             except (APIStatusError, APIConnectionError) as e:
@@ -488,13 +588,21 @@ def _loop_metric(name: str, usage: UsageInfo) -> LoopMetric:
     )
 
 
-def _build_sustainability(usage_0: UsageInfo, usage_1: UsageInfo, usage_2: UsageInfo) -> Sustainability:
+def _build_sustainability(
+    usage_0: UsageInfo,
+    usage_1: UsageInfo,
+    usage_2: UsageInfo,
+    extra_steps: list[tuple[str, UsageInfo]] | None = None,
+    last_step_name: str = "Loop 2",
+) -> Sustainability:
     """Métricas de consumo por consulta (ODS 12 y 13), incluyendo el paso de
     reformulación (usage_0) para que el total mostrado sea el consumo real de
     la consulta completa, no solo el de los dos loops del paper. Tokens y
     costo son los que reporta la API (medidos); energía y CO2e se estiman con
-    los coeficientes de configuración."""
-    total = _sum_usage_all(usage_0, usage_1, usage_2)
+    los coeficientes de configuración. `extra_steps` agrega pasos entre el
+    Loop 1 y el último (ej. la búsqueda externa)."""
+    extra = extra_steps or []
+    total = _sum_usage_all(usage_0, usage_1, usage_2, *[u for _, u in extra])
     energy_wh = _energy_wh(total.total_tokens)
     co2_g = (energy_wh / 1000) * settings.CO2_G_PER_KWH
     cost_per_1k = (total.estimated_cost_usd / total.total_tokens * 1000) if total.total_tokens else 0.0
@@ -502,7 +610,8 @@ def _build_sustainability(usage_0: UsageInfo, usage_1: UsageInfo, usage_2: Usage
         loops=[
             _loop_metric("Reformulación", usage_0),
             _loop_metric("Loop 1", usage_1),
-            _loop_metric("Loop 2", usage_2),
+            *[_loop_metric(name, u) for name, u in extra],
+            _loop_metric(last_step_name, usage_2),
         ],
         prompt_tokens=total.prompt_tokens,
         completion_tokens=total.completion_tokens,
@@ -593,15 +702,50 @@ def _run_loop1(
     return refined_question, loop1, usage_0, usage_1, sources
 
 
-def _run_loop2(refined_question: str, loop1: Loop1Result) -> tuple[Loop2Output, UsageInfo]:
+def _run_external(refined_question: str, loop1: Loop1Result) -> tuple[ExternalResult, UsageInfo]:
+    """Búsqueda externa / triangulación (a pedido del cliente): el modelo de IA
+    aporta desde su conocimiento general lo que falta en la bibliografía. Ojo:
+    no navega la web; responde de memoria, puede estar desactualizado y puede
+    equivocarse — por eso todo lo que aporta se marca como NO verificado."""
+    verified = "\n".join(f"- {c.claim}" for c in loop1.verified_claims) or "Ninguna."
+    missing = "\n".join(f"- {m}" for m in loop1.missing_info) or "No se indicó información faltante concreta."
+    discarded = "\n".join(f"- {c.claim}" for c in loop1.discarded_claims) or "Ninguna."
+    system_prompt = PROMPT_EXT_SYSTEM.format(
+        question=refined_question, verified_claims=verified, missing_info=missing, discarded_claims=discarded
+    )
+    return _call_deepseek(system_prompt, refined_question, ExternalResult)
+
+
+def _format_external_claims(external: ExternalResult) -> list[str]:
+    lines = []
+    for c in external.external_claims:
+        extra = " · ".join(x for x in [c.basis, f"confianza {c.confidence}" if c.confidence else ""] if x)
+        lines.append(f"{c.claim} ({extra})" if extra else c.claim)
+    return lines
+
+
+def _run_loop2(
+    refined_question: str, loop1: Loop1Result, external: ExternalResult | None = None
+) -> tuple[Loop2Output, UsageInfo]:
     """Prompt 2 / Loop 2: recibe SOLO lo validado por el Loop 1 (no la
     bibliografía completa) y entrega la respuesta final podada. Responde a la
-    pregunta ya reformulada (más precisa), no a la consulta cruda original."""
+    pregunta ya reformulada (más precisa), no a la consulta cruda original. Si
+    el usuario eligió la búsqueda externa, recibe además ese complemento (que
+    debe marcar como "(externo)" en la respuesta)."""
     verified = (
         "\n".join(f"- {c.claim} (Fuente: {c.source or 'sin fuente'})" for c in loop1.verified_claims)
         or "Ninguna afirmación pudo verificarse."
     )
     missing = "\n".join(f"- {m}" for m in loop1.missing_info) or "Ninguna."
+
+    external_block = ""
+    if external and external.external_claims:
+        external_block = (
+            "\nComplemento de búsqueda externa (NO verificado en la bibliografía; úsalo solo para cubrir "
+            "lo que falta y marca cada dato tomado de aquí con \"(externo)\"):\n"
+            + "\n".join(f"- {line}" for line in _format_external_claims(external))
+            + "\n"
+        )
 
     system_prompt = PROMPT_2_SYSTEM.format(
         question=refined_question,
@@ -610,6 +754,7 @@ def _run_loop2(refined_question: str, loop1: Loop1Result) -> tuple[Loop2Output, 
         logical_draft=loop1.logical_draft,
         verified_claims=verified,
         missing_info=missing,
+        external_block=external_block,
         max_words=settings.ANSWER_MAX_WORDS,
     )
 
@@ -630,38 +775,168 @@ def _run_loop2(refined_question: str, loop1: Loop1Result) -> tuple[Loop2Output, 
     return output, usage
 
 
-def run_simulation(
-    session_token: str, prompt: str, attached_text: str = "", attached_filename: str = ""
+_MODEL_PLAN_RE = re.compile(r"plan(es)?\s+de\s+cuentas", re.IGNORECASE)
+_MODEL_EEFF_RE = re.compile(
+    r"estados?\s+(de\s+situaci[oó]n\s+)?financier|situaci[oó]n\s+financiera|balance\s+general", re.IGNORECASE
+)
+
+
+def detect_model_kind(*texts: str) -> str:
+    """Si la consulta pide/menciona un plan de cuentas o estados financieros,
+    se ofrece generar un modelo. Detección por palabras clave a propósito:
+    es determinista y no gasta una llamada a la IA."""
+    joined = " ".join(t for t in texts if t)
+    if _MODEL_PLAN_RE.search(joined):
+        return "plan_cuentas"
+    if _MODEL_EEFF_RE.search(joined):
+        return "estados_financieros"
+    return ""
+
+
+def _run_model(
+    request_text: str, refined_question: str, kind: str, old_text: str, old_name: str
+) -> tuple[ModelDocResult, UsageInfo]:
+    """Genera un modelo (plan de cuentas / estados financieros) con el
+    proveedor de IA, apoyado en la bibliografía (incluidos los modelos de
+    referencia cargados) y, si el usuario adjuntó uno anterior, actualizándolo."""
+    if kind not in MODEL_LABELS:
+        raise ValueError(f"Tipo de modelo no soportado: {kind}")
+    query = (
+        "modelo de plan de cuentas codificado jerarquizado activo pasivo patrimonio ingresos costos gastos"
+        if kind == "plan_cuentas"
+        else "modelo de estado de situación financiera NIIF activo corriente pasivo patrimonio notas reveladoras"
+    )
+    results = search_legal_context(query, top_k=8, exclude_categories=["metodologica"])
+    old_document = (
+        f"[Archivo: {old_name or 'documento anterior'}]\n{old_text}" if old_text.strip() else "No se adjuntó ninguno."
+    )
+    system_prompt = PROMPT_MODEL_SYSTEM.format(
+        kind_label=MODEL_LABELS[kind],
+        request=request_text,
+        refined_question=refined_question,
+        legal_context=_format_legal_context(results, max_chars=1500),
+        old_document=old_document,
+    )
+    result, usage = _call_deepseek(
+        system_prompt, refined_question or request_text, ModelDocResult, max_tokens=settings.MODEL_MAX_TOKENS
+    )
+    if not result.content.strip():
+        raise ValueError("El modelo de IA no devolvió contenido para el documento")
+    return result, usage
+
+
+def _out_of_scope_payload(
+    loop1: Loop1Result, refined_question: str, attached_filename: str, usage_0: UsageInfo, usage_1: UsageInfo
 ) -> dict:
-    """Si la pregunta queda fuera del alcance legal/contable del sistema (lo
-    decide el Loop 1), se corta ahí: no se llama al Loop 2, no se crea
-    expediente ni se guarda en el historial, y NO cuenta contra el límite de
-    consultas gratis de la sesión (eso lo decide el caller, ver
-    app/api/simulate.py, con el `usage` de esta única llamada como dato).
-    `attached_text`/`attached_filename`: archivo opcional adjuntado a ESTA
-    consulta puntual (ya extraído a texto por la capa de API) — no se indexa
-    en la bibliografía compartida."""
+    return {
+        "in_scope": False,
+        "out_of_scope_reason": loop1.out_of_scope_reason
+        or "Esta consulta no corresponde al ámbito legal/contable de este sistema.",
+        "refined_question": refined_question,
+        "attached_filename": attached_filename,
+        "usage": _sum_usage(usage_0, usage_1).model_dump(),
+        # Los gráficos de consumo salen en TODA consulta, también en las
+        # fuera de alcance (a pedido del cliente): el Loop 2 no corrió, así
+        # que ese paso queda en cero.
+        "sustainability": _build_sustainability(usage_0, usage_1, UsageInfo()).model_dump(),
+    }
+
+
+def run_phase1(prompt: str, attached_text: str = "", attached_filename: str = "") -> dict:
+    """Paso 1 del flujo: reformulación + Loop 1. Si la pregunta queda fuera del
+    alcance se corta aquí (misma respuesta de siempre: sin expediente y sin
+    contar contra el contador de la sesión). Si no, devuelve un BORRADOR
+    (clave "draft") con todo lo necesario para retomar en `run_finalize` una vez
+    que el usuario decida cómo seguir: respuesta final, búsqueda externa o
+    generar un modelo."""
     refined_question, loop1, usage_0, usage_1, sources_used = _run_loop1(
         prompt, attached_text=attached_text, attached_filename=attached_filename
     )
 
     if not loop1.in_scope:
-        return {
-            "in_scope": False,
-            "out_of_scope_reason": loop1.out_of_scope_reason
-            or "Esta consulta no corresponde al ámbito legal/contable de este sistema.",
-            "refined_question": refined_question,
-            "attached_filename": attached_filename,
-            "usage": _sum_usage(usage_0, usage_1).model_dump(),
-            # Los gráficos de consumo salen en TODA consulta, también en las
-            # fuera de alcance (a pedido del cliente): el Loop 2 no corrió, así
-            # que ese paso queda en cero.
-            "sustainability": _build_sustainability(usage_0, usage_1, UsageInfo()).model_dump(),
-        }
+        return _out_of_scope_payload(loop1, refined_question, attached_filename, usage_0, usage_1)
 
-    loop2, usage_2 = _run_loop2(refined_question, loop1)
-    total_usage = _sum_usage_all(usage_0, usage_1, usage_2)
-    sustainability = _build_sustainability(usage_0, usage_1, usage_2)
+    return {
+        "in_scope": True,
+        "draft": {
+            "prompt": prompt,
+            "refined_question": refined_question,
+            "loop1": loop1.model_dump(),
+            "usage_0": usage_0.model_dump(),
+            "usage_1": usage_1.model_dump(),
+            "sources_used": sources_used,
+            "attached_filename": attached_filename,
+            "attached_text": attached_text,
+            "model_kind": detect_model_kind(prompt, refined_question),
+        },
+    }
+
+
+def run_finalize(
+    session_token: str,
+    draft: dict,
+    mode: str = "seguir",
+    model_kind: str = "",
+    model_old_text: str = "",
+    model_old_name: str = "",
+) -> dict:
+    """Paso 2: tras la decisión del usuario sobre el borrador.
+
+    - "seguir": Loop 2 con lo verificado en la bibliografía (como siempre).
+    - "complementar": antes del Loop 2, búsqueda externa con el modelo de IA
+      para cubrir lo que falta; ese aporte se marca como NO verificado.
+    - "modelo": genera un modelo (plan de cuentas / estados financieros),
+      actualizando el documento anterior si se adjuntó uno.
+    """
+    refined_question = draft["refined_question"]
+    loop1 = Loop1Result(**draft["loop1"])
+    usage_0 = UsageInfo(**draft["usage_0"])
+    usage_1 = UsageInfo(**draft["usage_1"])
+    attached_filename = draft.get("attached_filename", "")
+
+    external_info = None
+    model_document = None
+    extra_steps: list[tuple[str, UsageInfo]] = []
+    last_step_name = "Loop 2"
+
+    if mode == "modelo":
+        kind = model_kind or draft.get("model_kind") or "plan_cuentas"
+        old_text = model_old_text or draft.get("attached_text", "")
+        old_name = model_old_name or attached_filename
+        doc, usage_2 = _run_model(draft["prompt"], refined_question, kind, old_text, old_name)
+        title = doc.title.strip() or f"Modelo de {MODEL_LABELS[kind]}"
+        model_document = {
+            "kind": kind,
+            "title": title,
+            "content": doc.content,
+            "notes": doc.notes,
+            "based_on_attachment": old_name if old_text.strip() else "",
+        }
+        message = f"Modelo generado: {title}. Descárgalo en PDF desde el botón de abajo."
+        loop2 = Loop2Output(
+            final_answer=message,
+            condition_met=True,
+            words=_words(message),
+            draft_words=0,
+            pruning_ratio=0.0,
+            max_words=settings.ANSWER_MAX_WORDS,
+            within_word_limit=True,
+        )
+        last_step_name = "Generación del modelo"
+    else:
+        external = None
+        if mode == "complementar":
+            external, usage_ext = _run_external(refined_question, loop1)
+            extra_steps.append(("Búsqueda externa", usage_ext))
+            external_info = {
+                "used": bool(external.external_claims),
+                "claims": _format_external_claims(external),
+                "caveat": external.caveat,
+            }
+        loop2, usage_2 = _run_loop2(refined_question, loop1, external)
+
+    total_usage = _sum_usage_all(usage_0, usage_1, usage_2, *[u for _, u in extra_steps])
+    sustainability = _build_sustainability(usage_0, usage_1, usage_2, extra_steps, last_step_name)
 
     expediente_id = f"AUD-{datetime.now(timezone.utc).strftime('%Y')}-{uuid.uuid4().hex[:6].upper()}"
     created_at = datetime.now(timezone.utc).isoformat()
@@ -676,11 +951,14 @@ def run_simulation(
         "entity_type": loop1.entity_type,
         "framework": loop1.framework,
         "missing_info": loop1.missing_info,
-        "sources_used": sources_used,
+        "sources_used": draft["sources_used"],
         "loop1": loop1.model_dump(),
         "loop2": loop2.model_dump(),
         "sustainability": sustainability.model_dump(),
         "usage": total_usage.model_dump(),
+        "external": external_info,
+        "model_document": model_document,
+        "model_kind": draft.get("model_kind", ""),
     }
 
     insert_simulation(
@@ -690,7 +968,7 @@ def run_simulation(
             "created_at": created_at,
             "entity_type": loop1.entity_type,
             "framework": loop1.framework,
-            "prompt": prompt,
+            "prompt": draft["prompt"],
             "structured_prompt": loop1.logical_draft,
             "result_json": json.dumps(result_payload, ensure_ascii=False),
             "prompt_tokens": total_usage.prompt_tokens,
@@ -704,3 +982,15 @@ def run_simulation(
     _check_daily_cost_alert()
 
     return result_payload
+
+
+def run_simulation(
+    session_token: str, prompt: str, attached_text: str = "", attached_filename: str = ""
+) -> dict:
+    """Flujo completo en un solo paso (reformulación + Loop 1 + Loop 2, sin
+    decisión intermedia del usuario): equivale a "start" + "finalize/seguir".
+    La interfaz usa los dos pasos por separado (ver app/api/simulate.py)."""
+    phase1 = run_phase1(prompt, attached_text=attached_text, attached_filename=attached_filename)
+    if phase1.get("in_scope") is False:
+        return phase1
+    return run_finalize(session_token, phase1["draft"], mode="seguir")

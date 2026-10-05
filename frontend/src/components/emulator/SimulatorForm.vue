@@ -1,7 +1,8 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
-import { simulate, startSession } from '../../services/api.js'
+import { simulateFinalize, simulateStart, startSession } from '../../services/api.js'
 import AnswerCard from './AnswerCard.vue'
+import CheckpointCard from './CheckpointCard.vue'
 import ComparisonTable from './ComparisonTable.vue'
 import SustainabilityPanel from './SustainabilityPanel.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
@@ -94,14 +95,43 @@ function fmtFileSize(bytes) {
 // usuario: pedimos una sesión nueva y reintentamos la MISMA consulta una vez
 // — igual que App.vue hace al cargar la página, pero también aquí en medio
 // del chat.
-async function simulateWithRetry(prompt, file) {
+async function startWithRetry(prompt, file) {
   try {
-    return await simulate({ prompt, file })
+    return await simulateStart({ prompt, file })
   } catch (error) {
     if (error.status !== 401) throw error
     const session = await startSession()
     setSession(session)
-    return await simulate({ prompt, file })
+    return await simulateStart({ prompt, file })
+  }
+}
+
+// Tras el Loop 1 el usuario decide cómo seguir (ver CheckpointCard): la
+// respuesta final (Loop 2) se genera con la opción elegida y reemplaza a la
+// tarjeta de decisión en el mismo lugar del chat. Aquí NO se reintenta con una
+// sesión nueva: el borrador pertenece a la sesión que lo creó.
+async function chooseOption(msg, { mode, kind, file }) {
+  if (isProcessing.value) return
+  msg.busy = mode
+  msg.error = ''
+  isProcessing.value = true
+  simulationStatus.value = 'processing'
+  try {
+    const result = await simulateFinalize({ draftId: msg.draft.draft_id, mode, kind, file })
+    updateSessionStatus(result)
+    const idx = messages.value.findIndex((m) => m.draft?.draft_id === msg.draft.draft_id)
+    if (idx >= 0) messages.value[idx] = { role: 'answer', result }
+    // Cuestionario del cliente: se ofrece al llegar a la 3.ª y 4.ª consulta
+    // válida de la sesión (free_queries_used ya incluye esta respuesta).
+    showSurvey.value = SURVEY_AT_QUERY_NUMBERS.includes(result.free_queries_used)
+  } catch (error) {
+    msg.error = error.status === 404
+      ? 'Esta consulta ya no está disponible (venció). Vuelve a enviarla.'
+      : `No se pudo continuar: ${error.message}`
+    msg.busy = ''
+  } finally {
+    isProcessing.value = false
+    simulationStatus.value = 'idle'
   }
 }
 
@@ -121,7 +151,7 @@ async function send() {
   attachmentError.value = ''
 
   try {
-    const result = await simulateWithRetry(text, file)
+    const result = await startWithRetry(text, file)
 
     updateSessionStatus(result)
 
@@ -135,11 +165,8 @@ async function send() {
       return
     }
 
-    messages.value.push({ role: 'answer', result })
-
-    // Cuestionario del cliente: se ofrece al llegar a la 3.ª y 4.ª consulta
-    // válida de la sesión (free_queries_used ya incluye esta respuesta).
-    showSurvey.value = SURVEY_AT_QUERY_NUMBERS.includes(result.free_queries_used)
+    // Primer análisis (Loop 1): se muestra y se pregunta cómo seguir.
+    messages.value.push({ role: 'checkpoint', draft: result, busy: '', error: '' })
   } catch (error) {
     messages.value.push({
       role: 'alert',
@@ -206,6 +233,15 @@ async function send() {
             </div>
           </div>
         </div>
+
+        <!-- Primer análisis (Loop 1) + pregunta de cómo seguir -->
+        <CheckpointCard
+          v-else-if="msg.role === 'checkpoint'"
+          :draft="msg.draft"
+          :busy="msg.busy"
+          :error="msg.error"
+          @choose="(opt) => chooseOption(msg, opt)"
+        />
 
         <!-- Respuesta del protocolo AOPCCPS+IA (Loop 1 + Loop 2 + consumo) -->
         <AnswerCard v-else-if="msg.role === 'answer'" :result="msg.result" />

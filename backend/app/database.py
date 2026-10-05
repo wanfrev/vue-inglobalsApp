@@ -63,6 +63,19 @@ def init_sqlite() -> None:
         if column not in existing_columns:
             conn.execute(f"ALTER TABLE simulations ADD COLUMN {column} REAL NOT NULL DEFAULT 0")
 
+    # Borradores del flujo en dos pasos: tras el Loop 1 el usuario decide cómo
+    # seguir (respuesta final, búsqueda externa, generar un modelo...) y el
+    # servidor retoma desde aquí — así el cliente no puede alterar lo que el
+    # Loop 1 "verificó".
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS simulation_drafts (
+            id TEXT PRIMARY KEY,
+            session_token TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -295,6 +308,29 @@ def get_simulation_by_expediente(expediente_id: str, session_token: str) -> dict
     ).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def insert_draft(draft_id: str, session_token: str, payload: dict) -> None:
+    conn = get_sqlite_connection()
+    # Los borradores sin usar no se acumulan para siempre.
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+    conn.execute("DELETE FROM simulation_drafts WHERE created_at < ?", (cutoff,))
+    conn.execute(
+        "INSERT INTO simulation_drafts (id, session_token, created_at, payload_json) VALUES (?, ?, ?, ?)",
+        (draft_id, session_token, datetime.now(timezone.utc).isoformat(), json.dumps(payload, ensure_ascii=False)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_draft(draft_id: str, session_token: str) -> dict | None:
+    conn = get_sqlite_connection()
+    row = conn.execute(
+        "SELECT payload_json FROM simulation_drafts WHERE id = ? AND session_token = ?",
+        (draft_id, session_token),
+    ).fetchone()
+    conn.close()
+    return json.loads(row["payload_json"]) if row else None
 
 
 def insert_simulation(data: dict) -> int:
