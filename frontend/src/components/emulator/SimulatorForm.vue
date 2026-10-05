@@ -7,7 +7,7 @@ import ComparisonTable from './ComparisonTable.vue'
 import SustainabilityPanel from './SustainabilityPanel.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 import SurveyBanner from './SurveyBanner.vue'
-import { SURVEY_AT_QUERY_NUMBERS } from '../../constants.js'
+import { SURVEY_EVERY_N_QUERIES } from '../../constants.js'
 
 const messages = ref([])
 
@@ -121,9 +121,9 @@ async function chooseOption(msg, { mode, kind, file }) {
     updateSessionStatus(result)
     const idx = messages.value.findIndex((m) => m.draft?.draft_id === msg.draft.draft_id)
     if (idx >= 0) messages.value[idx] = { role: 'answer', result }
-    // Cuestionario del cliente: se ofrece al llegar a la 3.ª y 4.ª consulta
-    // válida de la sesión (free_queries_used ya incluye esta respuesta).
-    showSurvey.value = SURVEY_AT_QUERY_NUMBERS.includes(result.free_queries_used)
+    // Cuestionario del cliente: se ofrece cada 3 consultas válidas de la
+    // sesión (free_queries_used ya incluye esta respuesta).
+    showSurvey.value = result.free_queries_used > 0 && result.free_queries_used % SURVEY_EVERY_N_QUERIES === 0
   } catch (error) {
     msg.error = error.status === 404
       ? 'Esta consulta ya no está disponible (venció). Vuelve a enviarla.'
