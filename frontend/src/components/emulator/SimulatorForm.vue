@@ -5,7 +5,7 @@ import AnswerCard from './AnswerCard.vue'
 import CheckpointCard from './CheckpointCard.vue'
 import ComparisonTable from './ComparisonTable.vue'
 import SustainabilityPanel from './SustainabilityPanel.vue'
-import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
+import { promptText, setSession, simulationStatus, surveyCompleted, updateSessionStatus } from '../../stores/appStore.js'
 import SurveyBanner from './SurveyBanner.vue'
 import { SURVEY_EVERY_N_QUERIES } from '../../constants.js'
 
@@ -287,7 +287,7 @@ async function send() {
       <div class="mx-auto w-full max-w-4xl">
         <!-- Cuestionario del cliente: fijo sobre el campo de texto (visible sin
         hacer scroll) en la 3.ª y 4.ª consulta; se puede cerrar. -->
-        <SurveyBanner v-if="showSurvey" class="mb-3" @close="showSurvey = false" />
+        <SurveyBanner v-if="showSurvey && !surveyCompleted" class="mb-3" @close="showSurvey = false" />
         <p v-if="attachmentError" class="mb-2 text-xs font-medium text-violetaIA">{{ attachmentError }}</p>
 
         <!-- Chip del archivo adjunto, antes de enviar -->

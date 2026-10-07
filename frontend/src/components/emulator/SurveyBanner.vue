@@ -1,5 +1,6 @@
 <script setup>
 import { FEEDBACK_FORM_URL } from '../../constants.js'
+import { noteSurveyOpened } from '../../stores/appStore.js'
 
 defineEmits(['close'])
 </script>
@@ -42,6 +43,7 @@ defineEmits(['close'])
           target="_blank"
           rel="noopener noreferrer"
           class="relative inline-flex w-full shrink-0 items-center justify-center sm:w-auto"
+          @click="noteSurveyOpened"
         >
           <span class="absolute -inset-1 animate-pulse rounded-2xl bg-oro/60 blur-md [animation-duration:1.8s]"></span>
           <span class="relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] px-6 py-3 text-sm font-extrabold text-azulCorp shadow-lg transition-transform hover:scale-105 active:scale-95">

@@ -26,6 +26,55 @@ export function updateSessionStatus({ free_queries_used, is_paid }) {
   sessionInfo.value = { ...sessionInfo.value, free_queries_used, is_paid }
 }
 
+// --- Cuestionario del cliente --------------------------------------------
+// "Completado" se guarda en el navegador (igual que la sesión anónima): si la
+// persona borra los datos del sitio, el botón vuelve a habilitarse.
+const SURVEY_KEY = 'inglobals_survey_completed'
+
+function readSurveyFlag() {
+  try {
+    return localStorage.getItem(SURVEY_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export const surveyCompleted = ref(readSurveyFlag())
+// Se abrió el formulario y falta confirmar que se envió (ver SurveyButton.vue).
+export const surveyAwaitingConfirmation = ref(false)
+
+export function noteSurveyOpened() {
+  surveyAwaitingConfirmation.value = true
+}
+
+export function dismissSurveyConfirmation() {
+  surveyAwaitingConfirmation.value = false
+}
+
+export function markSurveyCompleted() {
+  surveyCompleted.value = true
+  surveyAwaitingConfirmation.value = false
+  try {
+    localStorage.setItem(SURVEY_KEY, '1')
+  } catch {
+    // Sin localStorage el estado vale solo para esta pestaña.
+  }
+}
+
+// Registro automático: el mensaje de confirmación del formulario de Google puede
+// llevar un enlace de vuelta a /simulador/?cuestionario=completado.
+try {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('cuestionario') === 'completado') {
+    markSurveyCompleted()
+    params.delete('cuestionario')
+    const query = params.toString()
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`)
+  }
+} catch {
+  // Entorno sin window/history (no debería pasar en el navegador).
+}
+
 export function clearSession() {
   sessionToken.value = ''
   sessionInfo.value = null

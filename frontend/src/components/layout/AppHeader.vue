@@ -1,5 +1,6 @@
 <script setup>
 import { sessionInfo } from '../../stores/appStore.js'
+import SurveyButton from './SurveyButton.vue'
 
 // BASE_URL (ver vite.config.js: base: '/simulador/') — un <img src="/logo.png">
 // literal da 404 (Vite no reescribe strings, solo imports), estaba roto.
@@ -31,6 +32,8 @@ const logoUrl = `${import.meta.env.BASE_URL}logo.png`
       existe un tope contra el cual contar. Si una sesión quedó marcada como
       pagada (is_paid, ver database.py) igual se lo hacemos saber. -->
       <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <!-- Cuestionario: siempre disponible; deshabilitado al completarlo. -->
+        <SurveyButton />
         <span
           v-if="sessionInfo?.is_paid"
           class="whitespace-nowrap rounded-full bg-verdeEsm/15 px-2.5 py-1.5 text-xs font-semibold text-verdeEsm sm:px-3"
