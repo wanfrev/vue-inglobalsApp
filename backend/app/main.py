@@ -40,6 +40,13 @@ app.include_router(history_router)
 app.include_router(simulate_router)
 
 
+@app.get("/api/v1/health")
+def health():
+    # Ligero a propósito (no toca SQLite ni el índice): sirve para monitoreo
+    # externo y para comprobar rápido, a través de Nginx, que el backend vive.
+    return {"status": "ok"}
+
+
 @app.get("/")
 def home():
     return {"status": "Backend del Simulador DAD Activo y Corriendo"}

@@ -57,6 +57,28 @@ ufw allow 443
 ufw enable
 ```
 
+### Swap (obligatorio, no te lo saltes)
+
+Un Quasar viene con 6 GB de RAM y casi nada de swap (17 MB). El backend carga el
+modelo de embeddings y el índice en memoria por cada worker, y compilar la
+landing con Node también usa mucha RAM: sin swap, un pico de memoria puede
+dejar el servidor sin responder. Crea 4 GB de swap una sola vez:
+
+```bash
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+free -h   # debe mostrar ~4 GB en la fila Swap
+```
+
+### Sistema operativo
+
+Usa **Ubuntu 22.04 LTS "blank"** (no Webuzo ni otros paneles). En octubre de
+2026 un VPS con Ubuntu 24.04 dejó de arrancar (`systemd[1]: segfault` a los
+~18 s, también con kernel y respaldo anteriores) y solo se recuperó
+reinstalando con 22.04. No ejecutes `do-release-upgrade`; para actualizar
+paquetes usa `apt upgrade` con calma y comprueba que el servidor sigue
+estable (`uptime`) antes de reiniciarlo.
+
 Cierra esta sesión y vuelve a entrar ya como el usuario nuevo:
 
 ```bash
@@ -66,7 +88,7 @@ ssh inglobals@TU_IP_DEL_VPS
 ## 3. Instalar dependencias del sistema
 
 ```bash
-sudo apt install -y python3.12 python3.12-venv python3-pip git nginx certbot python3-certbot-nginx
+sudo apt install -y python3 python3-venv python3-pip git nginx certbot python3-certbot-nginx build-essential
 
 # Node.js 22 LTS (para compilar el frontend/landing directamente en el
 # servidor). Con Node 20, el toolchain de Astro 5.17.x (undici, sharp) tira
@@ -105,8 +127,11 @@ Va a pedirte la contraseña del usuario `inglobals` y tardará varios minutos
 
 ```bash
 cd ~/vue-inglobalsApp/backend
-python3.12 -m venv venv
+python3 -m venv venv
 source venv/bin/activate
+# PyTorch solo-CPU primero: sin esto pip descarga la versión con CUDA (varios
+# GB) que un VPS sin GPU no usa.
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
@@ -292,3 +317,44 @@ El script a propósito **no toca**:
 Si prefieres los pasos manuales (para entender qué hace, o depurar algo
 puntual), son los mismos que ya viste en las Fases 4-9 de este documento,
 sin el paso 0/5 de la bibliografía ni la configuración de Nginx/certbot.
+
+---
+
+## Respaldos (lo único que no está en git)
+
+Los datos del simulador (base de datos, índice de la bibliografía, documentos
+subidos y el `.env`) viven solo en el servidor. `deploy/backup.sh` los empaqueta
+en `~/backups` (guarda los últimos 7). Para que corra solo cada madrugada:
+
+```bash
+mkdir -p ~/backups && crontab -e
+```
+
+y agrega al final:
+
+```
+30 3 * * * bash $HOME/vue-inglobalsApp/deploy/backup.sh >> $HOME/backups/backup.log 2>&1
+```
+
+**Un respaldo en el mismo servidor no basta**: si el servidor no arranca,
+tampoco puedes leerlo. Baja una copia a tu PC cada semana (PowerShell en tu PC):
+
+```powershell
+scp inglobals@IP_DEL_VPS:backups/inglobals-*.tgz C:espaldo_inglobals```
+
+El archivo contiene el `.env` con claves: no lo subas a git.
+
+## Si el servidor no arranca o no responde
+
+1. Panel de Namecheap → VPS → **Reboot**; abre **VNC** y mira el arranque.
+2. Si no arranca: **Rescue** (activar y reiniciar). Entra por SSH como `root`
+   con la clave temporal que da el panel, y monta el disco en solo lectura:
+   `mount -o ro /dev/sda2 /mnt/disco`. Desde ahí copia
+   `/mnt/disco/home/inglobals/vue-inglobalsApp/backend/data` y `.env` con `scp`.
+3. Reinstalar (Ubuntu 22.04 blank) es seguro **solo si ya tienes copia de los
+   datos fuera del servidor**. Después sigue esta guía desde el paso 2 y
+   restaura el respaldo (instrucciones al final de `deploy/backup.sh`) en vez
+   de reindexar la bibliografía.
+4. Revisa memoria con `free -h` y `ps aux --sort=-%mem | head`. El servicio
+   `inglobals-backend` tiene un tope de memoria propio (`MemoryMax`), así que
+   si se desboca systemd lo reinicia a él sin tumbar el servidor.

@@ -28,6 +28,27 @@ cd "$REPO_ROOT"
 # fallar a medio camino si se escribe mal más adelante.
 sudo -v
 
+# --- Comprobación previa de memoria -----------------------------------------
+# Compilar frontend/landing (Node) mientras el backend tiene cargados el
+# modelo y el índice es lo más pesado que hace este servidor. Sin swap ni
+# margen, una compilación puede dejar la máquina sin RAM (se colgó así antes).
+AVAIL_MB="$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)"
+SWAP_MB="$(awk '/SwapTotal/ {print int($2/1024)}' /proc/meminfo)"
+echo "==> Memoria disponible: ${AVAIL_MB} MB | swap: ${SWAP_MB} MB"
+if [ "$SWAP_MB" -lt 1024 ]; then
+    echo "    AVISO: el servidor casi no tiene swap. Créalo (ver 'Swap' en DEPLOY_VPS.md)"
+    echo "    antes de actualizar con frecuencia: sin él, un pico de memoria cuelga la máquina."
+fi
+if [ "$AVAIL_MB" -lt 1200 ]; then
+    echo "    ERROR: menos de 1.2 GB de memoria disponible; abortando para no colgar el servidor."
+    echo "    Mira qué consume memoria con:  ps aux --sort=-%mem | head"
+    exit 1
+fi
+# Tope de memoria para Node y prioridad baja: la compilación nunca debe quitarle
+# recursos al backend, a Nginx ni a SSH.
+export NODE_OPTIONS="--max-old-space-size=1536"
+BUILD="nice -n 10 timeout 900"
+
 echo "==> Repositorio: $REPO_ROOT"
 BEFORE_REV="$(git rev-parse HEAD)"
 
@@ -68,14 +89,14 @@ echo ""
 echo "==> Frontend (simulador)"
 cd "$REPO_ROOT/frontend"
 npm install
-npm run build
+$BUILD npm run build
 cd "$REPO_ROOT"
 
 echo ""
 echo "==> Landing (Astro)"
 cd "$REPO_ROOT/landing"
 npm install
-npm run build
+$BUILD npm run build
 cd "$REPO_ROOT"
 
 echo ""

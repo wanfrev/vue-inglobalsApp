@@ -1,6 +1,10 @@
 [Unit]
 Description=InglobalsApp DAD backend (FastAPI + Gunicorn)
 After=network.target
+# Si el servicio se cae en bucle, que systemd deje de reintentar tras 5 fallos
+# en 10 minutos en vez de martillar el servidor (revisar con journalctl).
+StartLimitIntervalSec=600
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -8,6 +12,13 @@ User=inglobals
 Group=inglobals
 WorkingDirectory=/home/inglobals/vue-inglobalsApp/backend
 EnvironmentFile=/home/inglobals/vue-inglobalsApp/backend/.env
+# Limita los hilos de PyTorch/NumPy/FAISS por worker: sin esto cada worker abre
+# un hilo por CPU y varios buffers por hilo al cargar el modelo o buscar, lo
+# que dispara el uso de memoria y de CPU sin hacer las consultas más rápidas.
+Environment=OMP_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+Environment=OPENBLAS_NUM_THREADS=2
+Environment=TOKENIZERS_PARALLELISM=false
 
 # --workers 2, no más: el modelo de embeddings (sentence-transformers) y el
 # índice FAISS se cargan en memoria POR WORKER (son procesos separados, no
@@ -27,11 +38,29 @@ ExecStart=/home/inglobals/vue-inglobalsApp/backend/venv/bin/gunicorn app.main:ap
     --worker-class uvicorn.workers.UvicornWorker \
     --bind 127.0.0.1:8000 \
     --timeout 500 \
+    --max-requests 800 \
+    --max-requests-jitter 80 \
     --access-logfile - \
     --error-logfile -
 
+# --max-requests: cada worker se recicla tras ~800 consultas, así cualquier
+# fuga lenta de memoria (modelos, índice, PDFs) no se acumula durante semanas.
+# El jitter evita que los 2 workers se reinicien a la vez.
+
+# Tope de memoria PROPIO del servicio (cgroup): si el backend se descontrola,
+# systemd lo frena/reinicia a él solo, en vez de dejar sin RAM a todo el
+# servidor (SSH, Nginx, systemd). Dejan ~1 GB libre para el sistema en un
+# Quasar de 6 GB. MemoryHigh frena (reclama memoria); MemoryMax es el techo
+# duro. Ajusta con el valor real: `systemctl status inglobals-backend` muestra
+# "Memory:" con el pico actual.
+MemoryHigh=4200M
+MemoryMax=5000M
+# Si el kernel necesita matar algo por falta de memoria, que sea el backend
+# antes que sshd, nginx o systemd.
+OOMScoreAdjust=500
+
 Restart=always
-RestartSec=5
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
