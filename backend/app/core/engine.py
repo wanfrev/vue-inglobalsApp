@@ -3,6 +3,7 @@ import logging
 import re
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from openai import APIConnectionError, APIStatusError, OpenAI
@@ -675,12 +676,23 @@ def _run_loop1(
     pregunta reformulada, el resultado del Loop 1, el uso de tokens de cada
     paso por separado (para que el panel de consumo los muestre desglosados)
     y las fuentes recuperadas, para trazabilidad."""
-    refined_question, usage_0 = _reformulate_query(raw_prompt)
+    # Las fuentes web en vivo no dependen de la pregunta reformulada: se piden
+    # en paralelo con la llamada de reformulación (la más lenta del arranque)
+    # en vez de después, para que su primer fetch (~4-7s con la caché de 20 min
+    # fría) no se sume al tiempo total de la consulta. get_live_web_context()
+    # nunca lanza excepción, pero se defiende por si acaso.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        web_future = pool.submit(get_live_web_context)
+        refined_question, usage_0 = _reformulate_query(raw_prompt)
+    try:
+        live_context = web_future.result(timeout=15)
+    except Exception:
+        live_context = get_live_web_context()
 
     legal_results = search_legal_context(
         refined_question, top_k=10, exclude_categories=["metodologica"]
     )
-    legal_results = legal_results + get_live_web_context()
+    legal_results = legal_results + live_context
     methodological_results = search_legal_context(
         refined_question, top_k=3, filter_category="metodologica"
     )
