@@ -513,10 +513,25 @@ def _call_deepseek(
             )
 
             try:
-                data = json.loads(response.choices[0].message.content)
+                # Gemini (compat OpenAI) devuelve a veces choices vacío o
+                # content=None (contenido bloqueado, respuesta vacía); sin
+                # esta defensa, `response.choices[0]` revienta con TypeError
+                # que se saltaba los reintentos y el proveedor de respaldo.
+                content = None
+                choices = getattr(response, "choices", None)
+                if choices:
+                    message = getattr(choices[0], "message", None)
+                    content = getattr(message, "content", None)
+                if not isinstance(content, str) or not content.strip():
+                    raise ValueError("El proveedor devolvió una respuesta sin contenido utilizable")
+                data = json.loads(content)
                 return response_model(**data), usage_info
-            except (json.JSONDecodeError, ValidationError) as e:
+            except (json.JSONDecodeError, ValidationError, ValueError, TypeError, AttributeError) as e:
                 last_error = e
+                logger.warning(
+                    "Proveedor de IA '%s' devolvió una respuesta inválida (intento %d/2): %s",
+                    provider["name"], attempt + 1, str(e)[:200],
+                )
                 if attempt == 0:
                     continue
                 break  # agota los intentos de ESTE proveedor, prueba el siguiente
