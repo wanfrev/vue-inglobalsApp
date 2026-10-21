@@ -5,9 +5,8 @@ import AnswerCard from './AnswerCard.vue'
 import CheckpointCard from './CheckpointCard.vue'
 import ComparisonTable from './ComparisonTable.vue'
 import SustainabilityPanel from './SustainabilityPanel.vue'
-import { promptText, setSession, simulationStatus, surveyCompleted, updateSessionStatus } from '../../stores/appStore.js'
+import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
 import SurveyBanner from './SurveyBanner.vue'
-import { SURVEY_EVERY_N_QUERIES } from '../../constants.js'
 
 const messages = ref([])
 
@@ -24,7 +23,6 @@ const SUGGESTIONS = [
   { tag: 'Contador y cliente', text: 'Está obligado el contador a revelar la información financiera a beneficio del cliente.' },
 ]
 const textarea = ref(null)
-const showSurvey = ref(false)
 const isProcessing = ref(false)
 
 // Adjuntar un archivo a la consulta (a pedido del cliente): la IA lo usa
@@ -121,9 +119,6 @@ async function chooseOption(msg, { mode, kind, file }) {
     updateSessionStatus(result)
     const idx = messages.value.findIndex((m) => m.draft?.draft_id === msg.draft.draft_id)
     if (idx >= 0) messages.value[idx] = { role: 'answer', result }
-    // Cuestionario del cliente: se ofrece cada 3 consultas válidas de la
-    // sesión (free_queries_used ya incluye esta respuesta).
-    showSurvey.value = result.free_queries_used > 0 && result.free_queries_used % SURVEY_EVERY_N_QUERIES === 0
   } catch (error) {
     msg.error = error.status === 404
       ? 'Esta consulta ya no está disponible (venció). Vuelve a enviarla.'
@@ -144,7 +139,6 @@ async function send() {
   isProcessing.value = true
   simulationStatus.value = 'processing'
 
-  showSurvey.value = false
   messages.value.push({ role: 'user', text, fileName: file?.name || '' })
   promptText.value = ''
   attachedFile.value = null
@@ -285,9 +279,9 @@ async function send() {
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
       <div class="mx-auto w-full max-w-4xl">
-        <!-- Cuestionario del cliente: fijo sobre el campo de texto (visible sin
-        hacer scroll) en la 3.ª y 4.ª consulta; se puede cerrar. -->
-        <SurveyBanner v-if="showSurvey && !surveyCompleted" class="mb-3" @close="showSurvey = false" />
+        <!-- Cuestionario del cliente: SIEMPRE visible en el chat, fijo sobre el
+        campo de texto; al completarlo queda deshabilitado. -->
+        <SurveyBanner class="mb-3" />
         <p v-if="attachmentError" class="mb-2 text-xs font-medium text-violetaIA">{{ attachmentError }}</p>
 
         <!-- Chip del archivo adjunto, antes de enviar -->
@@ -330,8 +324,9 @@ async function send() {
             v-model="promptText"
             rows="1"
             placeholder="Escribe tu consulta..."
-            :disabled="isProcessing"
-             class="min-h-0 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-sm text-azulCorp outline-none placeholder:text-slate-400 disabled:opacity-50"
+            :readonly="isProcessing"
+            :aria-busy="isProcessing"
+            class="min-h-0 min-w-0 flex-1 resize-none bg-transparent py-1.5 text-base text-azulCorp outline-none placeholder:text-slate-400 read-only:opacity-50 sm:text-sm"
             @keydown.enter.exact.prevent="send"
           ></textarea>
 
