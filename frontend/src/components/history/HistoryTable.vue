@@ -40,14 +40,14 @@ async function downloadEntry(entry) {
       <table class="min-w-full divide-y divide-slate-200 overflow-hidden rounded-2xl bg-white/80">
       <thead>
         <tr>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Expediente</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Fecha</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Entidad</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Solicitud</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Tokens</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Costo</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Energía est.</th>
-          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Expediente</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Fecha</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Entidad</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Solicitud</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Tokens</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Costo</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-right text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Energía est.</th>
+          <th class="bg-slate-50/80 px-4 py-3.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-slate-500">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-200 text-sm text-slate-700">
@@ -115,7 +115,7 @@ async function downloadEntry(entry) {
 
         <p class="mb-3 break-words text-sm text-slate-600">{{ entry.request }}</p>
 
-        <div class="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+        <div class="mb-3 flex flex-wrap items-center gap-2 text-[0.75rem] font-semibold">
           <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ fmtInt(entry.tokens) }} tokens</span>
           <span class="rounded-full bg-oro/15 px-2.5 py-1 text-oroOscuro">{{ fmtUsd(entry.cost) }}</span>
           <span class="rounded-full bg-verdeEsm/15 px-2.5 py-1 text-verdeEsm">{{ fmtEnergy(entry.energy) }}</span>

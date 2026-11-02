@@ -160,7 +160,7 @@ async function copyShareText() {
       v-if="result.refined_question"
       class="rounded-2xl border border-azulCorp/15 bg-azulCorp/5 px-4 py-3 text-xs text-azulCorp"
     >
-      <span class="text-[10px] font-bold uppercase tracking-wide text-azulCorp/70">Pregunta interpretada por la IA</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-azulCorp/70">Pregunta interpretada por la IA</span>
       <div class="mt-1 break-words leading-relaxed">
         {{ result.refined_question }}<sup v-if="isUnresolved" class="font-bold text-oroOscuro">*</sup>
       </div>
@@ -184,12 +184,12 @@ async function copyShareText() {
         <sup>*</sup>
       </p>
       <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-oro/20 pt-2">
-        <span class="text-[11px] font-semibold text-oroOscuro/80">* Tema no resuelto</span>
+        <span class="text-[0.75rem] font-semibold text-oroOscuro/80">* Tema no resuelto</span>
         <a
           :href="FEEDBACK_FORM_URL"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 rounded-lg bg-oroOscuro px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-oroOscuro/90"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-oroOscuro px-3 py-1.5 text-[0.75rem] font-bold text-white transition-colors hover:bg-oroOscuro/90"
         >
           Enviar sugerencia
         </a>
@@ -199,13 +199,13 @@ async function copyShareText() {
     <!-- Respuesta final (Loop 2) -->
     <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:p-5">
       <div class="mb-3 flex flex-wrap items-center gap-2">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-oroOscuro">Respuesta</span>
-        <span v-if="entity" class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+        <span class="text-[0.75rem] font-semibold uppercase tracking-wider text-oroOscuro">Respuesta</span>
+        <span v-if="entity" class="rounded-full bg-slate-100 px-2 py-0.5 text-[0.6875rem] font-semibold text-slate-600">
           Entidad: {{ entity }}
         </span>
         <span
           v-if="result.framework"
-          class="max-w-full break-words rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
+          class="max-w-full break-words rounded-full bg-slate-100 px-2 py-0.5 text-[0.6875rem] font-semibold text-slate-600"
         >
           Marco: {{ result.framework }}
         </span>
@@ -213,9 +213,9 @@ async function copyShareText() {
 
       <div class="break-words whitespace-pre-line text-sm leading-relaxed text-slate-800">{{ loop2.final_answer }}</div>
 
-      <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+      <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-100 pt-3 text-[0.75rem] text-slate-500">
         <span
-          class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+          class="rounded-full px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide"
           :class="loop2.condition_met ? 'bg-verdeEsm/15 text-verdeEsm' : 'bg-oro/15 text-oroOscuro'"
         >
           {{ loop2.condition_met ? 'Estado = verdadero' : 'Condición no cumplida' }}
@@ -229,7 +229,7 @@ async function copyShareText() {
     <!-- Búsqueda externa (el usuario la eligió tras el Loop 1): lo que aporta NO
     está verificado en la bibliografía y se rotula así de forma visible. -->
     <div v-if="externalInfo" class="rounded-2xl border border-azulCorp/20 bg-azulCorp/5 px-4 py-3 text-xs text-azulCorp">
-      <div class="text-[10px] font-bold uppercase tracking-wide text-azulCorp/70">
+      <div class="text-[0.6875rem] font-bold uppercase tracking-wide text-azulCorp/70">
         Complemento de búsqueda externa — no verificado en la bibliografía
       </div>
       <ul class="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed">
@@ -242,9 +242,9 @@ async function copyShareText() {
     <div v-if="modelDocument" class="rounded-2xl border border-oro/40 bg-white p-4 shadow-sm sm:p-5">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="min-w-0">
-          <div class="text-[10px] font-bold uppercase tracking-wide text-oroOscuro">Modelo generado</div>
+          <div class="text-[0.6875rem] font-bold uppercase tracking-wide text-oroOscuro">Modelo generado</div>
           <div class="break-words text-sm font-bold text-azulCorp">{{ modelDocument.title }}</div>
-          <div v-if="modelDocument.based_on_attachment" class="text-[11px] text-slate-500">
+          <div v-if="modelDocument.based_on_attachment" class="text-[0.75rem] text-slate-500">
             Actualizado a partir de tu documento: {{ modelDocument.based_on_attachment }}
           </div>
         </div>
@@ -257,11 +257,11 @@ async function copyShareText() {
         </button>
       </div>
       <pre class="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-3 font-sans text-xs leading-relaxed text-slate-700">{{ modelDocument.content }}</pre>
-      <div v-if="modelDocument.notes" class="mt-2 text-[11px] italic text-slate-500">{{ modelDocument.notes }}</div>
+      <div v-if="modelDocument.notes" class="mt-2 text-[0.75rem] italic text-slate-500">{{ modelDocument.notes }}</div>
     </div>
 
     <!-- Descargar y Compartir: libres para todos, sin cuenta paga. -->
-    <div class="flex flex-wrap items-center gap-2 text-[11px]">
+    <div class="flex flex-wrap items-center gap-2 text-[0.75rem]">
       <button
         @click="downloadAnswer"
         :disabled="isDownloading"
@@ -346,17 +346,17 @@ async function copyShareText() {
       <div class="mt-4 space-y-4 text-xs leading-relaxed text-slate-700">
         <div v-if="loop1.ontological" class="grid gap-3 sm:grid-cols-2">
           <div>
-            <div class="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Ontológico</div>
+            <div class="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-slate-500">Ontológico</div>
             <div class="break-words">{{ loop1.ontological }}</div>
           </div>
           <div v-if="loop1.phenomenological">
-            <div class="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Fenomenológico</div>
+            <div class="mb-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-slate-500">Fenomenológico</div>
             <div class="break-words">{{ loop1.phenomenological }}</div>
           </div>
         </div>
 
         <div v-if="loop1.verified_claims?.length">
-          <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">Verificadas (falsabilidad 3/3)</div>
+          <div class="mb-1 text-[0.6875rem] font-bold uppercase tracking-wide text-verdeEsm">Verificadas (falsabilidad 3/3)</div>
           <ul class="space-y-1.5">
             <li v-for="(c, i) in loop1.verified_claims" :key="`v${i}`" class="break-words">
               <span class="font-bold text-verdeEsm">✓</span> {{ c.claim }}
@@ -366,7 +366,7 @@ async function copyShareText() {
         </div>
 
         <div v-if="loop1.discarded_claims?.length">
-          <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-violetaIA">Descartadas</div>
+          <div class="mb-1 text-[0.6875rem] font-bold uppercase tracking-wide text-violetaIA">Descartadas</div>
           <ul class="space-y-1.5">
             <li v-for="(c, i) in loop1.discarded_claims" :key="`d${i}`" class="break-words">
               <span class="font-bold text-violetaIA">✗</span> {{ c.claim }}
@@ -376,14 +376,14 @@ async function copyShareText() {
         </div>
 
         <div v-if="loop1.missing_info?.length">
-          <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">Información faltante</div>
+          <div class="mb-1 text-[0.6875rem] font-bold uppercase tracking-wide text-oroOscuro">Información faltante</div>
           <ul class="list-disc space-y-1 pl-4">
             <li v-for="(m, i) in loop1.missing_info" :key="`m${i}`" class="break-words">{{ m }}</li>
           </ul>
         </div>
 
         <div v-if="consultedSources.length">
-          <div class="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Bibliografía consultada</div>
+          <div class="mb-1 text-[0.6875rem] font-bold uppercase tracking-wide text-slate-500">Bibliografía consultada</div>
           <ul class="space-y-1 text-slate-500">
             <li v-for="src in consultedSources" :key="src.title" class="flex flex-wrap items-center gap-x-2 break-words">
               <span>{{ src.title }}</span>
@@ -392,7 +392,7 @@ async function copyShareText() {
                 :href="documentDownloadUrl(src.doc_id)"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex items-center gap-1 rounded-md border border-oro/40 bg-oro/5 px-1.5 py-0.5 text-[10px] font-bold text-oroOscuro hover:bg-oro/15"
+                class="inline-flex items-center gap-1 rounded-md border border-oro/40 bg-oro/5 px-1.5 py-0.5 text-[0.6875rem] font-bold text-oroOscuro hover:bg-oro/15"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" />

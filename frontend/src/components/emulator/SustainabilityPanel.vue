@@ -296,11 +296,11 @@ const dataTable = computed(() => steps.value)
   <section class="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
     <header class="mb-3 flex flex-wrap items-center gap-2 px-1">
       <h4 class="text-sm font-bold text-azulCorp">Panel de KPI de sostenibilidad</h4>
-      <span class="rounded-full bg-oro/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">ODS 12</span>
-      <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
+      <span class="rounded-full bg-oro/15 px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-oroOscuro">ODS 12</span>
+      <span class="rounded-full bg-verdeEsm/15 px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-verdeEsm">ODS 13</span>
 
       <div class="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span v-for="st in steps" :key="`lg-${st.name}`" class="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <span v-for="st in steps" :key="`lg-${st.name}`" class="flex items-center gap-1.5 text-[0.75rem] text-slate-500">
           <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: st.color }"></span>{{ st.name }}
         </span>
       </div>
@@ -312,10 +312,10 @@ const dataTable = computed(() => steps.value)
       <!-- Tokens: solo líneas con puntos -->
       <div class="min-w-0 bg-white p-3">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2">
-          <h5 class="text-[13px] font-bold text-azulCorp">Tokens por paso</h5>
-          <span class="text-[11px] font-semibold text-slate-600">{{ tokensReadout() }}</span>
+          <h5 class="text-[0.8125rem] font-bold text-azulCorp">Tokens por paso</h5>
+          <span class="text-[0.75rem] font-semibold text-slate-600">{{ tokensReadout() }}</span>
         </div>
-        <div class="text-[10px] text-slate-400">Entrada, salida y total en cada paso del protocolo</div>
+        <div class="text-[0.6875rem] text-slate-400">Entrada, salida y total en cada paso del protocolo</div>
 
         <svg :viewBox="`0 0 ${BW} ${BH}`" class="mt-1 h-auto w-full" role="img"
           :aria-label="`Tokens por paso: ${steps.map((st) => `${st.name} entrada ${fmtInt(st.prompt_tokens)}, salida ${fmtInt(st.completion_tokens)}, total ${fmtInt(st.total_tokens)}`).join('; ')}`">
@@ -375,12 +375,12 @@ const dataTable = computed(() => steps.value)
         </svg>
 
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span v-for="sr in tokensLine.series" :key="`lg-${sr.key}`" class="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <span v-for="sr in tokensLine.series" :key="`lg-${sr.key}`" class="flex items-center gap-1.5 text-[0.75rem] text-slate-500">
             <span class="h-2 w-2 shrink-0 rounded-full" :style="{ backgroundColor: sr.color }"></span>{{ sr.label }}
           </span>
           <span
             v-if="tokensLine.budget"
-            class="rounded-full px-2 py-0.5 text-[10px] font-bold"
+            class="rounded-full px-2 py-0.5 text-[0.6875rem] font-bold"
             :class="overBudget(s.total_tokens, tokensLine.budget) ? 'bg-oro/15 text-oroOscuro' : 'bg-verdeEsm/15 text-verdeEsm'"
           >
             {{ overBudget(s.total_tokens, tokensLine.budget) ? `${fmtDec(ratio(s.total_tokens, tokensLine.budget), 1)}× el umbral del protocolo (${fmtInt(tokensLine.budget)})` : 'dentro del umbral del protocolo' }}
@@ -391,10 +391,10 @@ const dataTable = computed(() => steps.value)
       <!-- Barras por paso: costo y CO2e -->
       <div v-for="panel in barPanels" :key="panel.key" class="min-w-0 bg-white p-3">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2">
-          <h5 class="text-[13px] font-bold text-azulCorp">{{ panel.title }}</h5>
-          <span class="text-[11px] font-semibold text-slate-600">{{ barReadout(panel) }}</span>
+          <h5 class="text-[0.8125rem] font-bold text-azulCorp">{{ panel.title }}</h5>
+          <span class="text-[0.75rem] font-semibold text-slate-600">{{ barReadout(panel) }}</span>
         </div>
-        <div class="text-[10px] text-slate-400">{{ panel.note }}</div>
+        <div class="text-[0.6875rem] text-slate-400">{{ panel.note }}</div>
 
         <svg :viewBox="`0 0 ${BW} ${BH}`" class="mt-1 h-auto w-full" role="img"
           :aria-label="`${panel.title}: ${panel.bars.map((b) => `${b.name} ${panel.fmt(b.value)} ${panel.unit}`).join(', ')}`">
@@ -433,10 +433,10 @@ const dataTable = computed(() => steps.value)
       <!-- Torta: energía estimada por paso -->
       <div class="min-w-0 bg-white p-3">
         <div class="flex flex-wrap items-baseline justify-between gap-x-2">
-          <h5 class="text-[13px] font-bold text-azulCorp">% de energía (est.) por paso</h5>
-          <span class="text-[11px] font-semibold text-slate-600">{{ pieReadout() }}</span>
+          <h5 class="text-[0.8125rem] font-bold text-azulCorp">% de energía (est.) por paso</h5>
+          <span class="text-[0.75rem] font-semibold text-slate-600">{{ pieReadout() }}</span>
         </div>
-        <div class="text-[10px] text-slate-400">{{ fmtDec(s.energy_wh_per_1k_tokens, 2) }} Wh por 1K tokens (estimado)</div>
+        <div class="text-[0.6875rem] text-slate-400">{{ fmtDec(s.energy_wh_per_1k_tokens, 2) }} Wh por 1K tokens (estimado)</div>
 
         <div class="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           <svg viewBox="0 0 140 140" class="h-36 w-36 shrink-0" role="img"
@@ -460,7 +460,7 @@ const dataTable = computed(() => steps.value)
             </template>
           </svg>
 
-          <ul class="space-y-1.5 text-[11px] text-slate-600">
+          <ul class="space-y-1.5 text-[0.75rem] text-slate-600">
             <li v-for="(sl, i) in energyPie.slices" :key="`li-${sl.name}`" class="flex items-center gap-2 rounded px-1"
               :class="isOn('energia', i) ? 'bg-slate-100' : ''"
               @mouseenter="hover = { key: 'energia', idx: i }" @mouseleave="hover = null">
@@ -475,8 +475,8 @@ const dataTable = computed(() => steps.value)
 
       <!-- Medidores con aguja -->
       <div v-for="g in gauges" :key="g.key" class="min-w-0 bg-white p-3">
-        <h5 class="text-[13px] font-bold text-azulCorp">{{ g.title }}</h5>
-        <div class="text-[10px] text-slate-400">{{ g.note }}</div>
+        <h5 class="text-[0.8125rem] font-bold text-azulCorp">{{ g.title }}</h5>
+        <div class="text-[0.6875rem] text-slate-400">{{ g.note }}</div>
 
         <svg viewBox="0 0 200 118" class="mx-auto mt-1 h-auto w-full max-w-[16rem]" role="img" :aria-label="`${g.title}: ${g.pct}%, ${g.sub}`">
           <path :d="g.track" fill="none" stroke="var(--color-slate-200)" stroke-width="16" />
@@ -487,17 +487,17 @@ const dataTable = computed(() => steps.value)
           <text :x="G_CX + G_R" :y="G_CY + 14" text-anchor="middle" font-size="9" fill="#64748b">100</text>
           <text :x="G_CX" :y="G_CY + 27" text-anchor="middle" font-size="22" font-weight="800" font-style="italic" fill="#0f172a">{{ g.pct }}%</text>
         </svg>
-        <div class="text-center text-[11px] text-slate-500">{{ g.sub }}</div>
+        <div class="text-center text-[0.75rem] text-slate-500">{{ g.sub }}</div>
       </div>
     </div>
 
     <!-- Vista de tabla: los mismos datos sin depender del color -->
     <details class="mt-3 rounded-xl border border-slate-100 bg-white px-4 py-2.5">
-      <summary class="cursor-pointer text-[11px] font-semibold text-slate-500">Ver datos en tabla</summary>
+      <summary class="cursor-pointer text-[0.75rem] font-semibold text-slate-500">Ver datos en tabla</summary>
       <div class="mt-2 overflow-x-auto">
-        <table class="w-full min-w-[26rem] text-left text-[11px] text-slate-600">
+        <table class="w-full min-w-[26rem] text-left text-[0.75rem] text-slate-600">
           <thead>
-            <tr class="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
+            <tr class="border-b border-slate-100 text-[0.6875rem] uppercase tracking-wide text-slate-400">
               <th class="py-1 pr-3 font-semibold">Paso</th>
               <th class="py-1 pr-3 font-semibold">Entrada</th>
               <th class="py-1 pr-3 font-semibold">Salida</th>
@@ -522,7 +522,7 @@ const dataTable = computed(() => steps.value)
       </div>
     </details>
 
-    <div class="mt-3 px-1 text-[10px] leading-relaxed text-slate-500">
+    <div class="mt-3 px-1 text-[0.6875rem] leading-relaxed text-slate-500">
       <strong class="font-semibold text-slate-600">Tokens y costo</strong> son medidos (los reporta la API del modelo).
       <strong class="font-semibold text-slate-600">Energía y CO₂e</strong> son estimaciones a partir de coeficientes de
       referencia, no una medición directa del proveedor. El umbral es el del protocolo AOPCCPS+IA. Pasa el mouse (o toca)

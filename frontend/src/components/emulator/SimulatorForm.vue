@@ -179,7 +179,7 @@ async function send() {
     <div class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-white/35 px-3 py-4 sm:px-8 sm:py-8">
       <div
         v-if="!messages.length"
-        class="mx-auto flex w-full max-w-3xl flex-col items-center py-6 text-center sm:py-10"
+        class="mx-auto flex w-full max-w-3xl xl:max-w-5xl flex-col items-center py-4 text-center sm:py-6"
       >
         <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-[20px] bg-slate-100 text-oroOscuro shadow-[inset_4px_4px_8px_rgba(15,23,42,0.08),inset_-4px_-4px_8px_rgba(255,255,255,0.95)]">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7">
@@ -194,7 +194,7 @@ async function send() {
           (auditoría, tributos, contabilidad en Venezuela) o adjuntar un documento con el clip.
         </div>
 
-        <div class="mt-5 grid w-full gap-2.5 text-left sm:grid-cols-2">
+        <div class="mt-4 grid w-full gap-2.5 text-left sm:grid-cols-2 xl:grid-cols-3">
           <button
             v-for="(sug, i) in SUGGESTIONS"
             :key="i"
@@ -202,8 +202,8 @@ async function send() {
             class="group rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-oro/60 hover:bg-white hover:shadow-md focus:outline-none focus-visible:border-oro"
             @click="useSuggestion(sug.text)"
           >
-            <span class="inline-block rounded-full bg-oro/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-oroOscuro">{{ sug.tag }}</span>
-            <span class="mt-1.5 block text-[13px] leading-snug text-azulCorp group-hover:text-oroOscuro">{{ sug.text }}</span>
+            <span class="inline-block rounded-full bg-oro/15 px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-oroOscuro">{{ sug.tag }}</span>
+            <span class="mt-1.5 block text-[0.8125rem] leading-snug text-azulCorp group-hover:text-oroOscuro">{{ sug.text }}</span>
           </button>
         </div>
       </div>
@@ -211,15 +211,15 @@ async function send() {
       <div
         v-for="(msg, i) in messages"
         :key="i"
-        class="mx-auto w-full max-w-4xl space-y-3"
+        class="mx-auto w-full max-w-4xl xl:max-w-5xl space-y-3"
       >
         <!-- Prompt enviado -->
         <div v-if="msg.role === 'user'" class="flex items-start gap-3 rounded-2xl border border-oro/20 bg-oro/5 p-4 shadow-sm">
           <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-oro/15 text-xs text-oroOscuro">01</span>
           <div class="min-w-0 flex-1 break-words">
-            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-oroOscuro">Consulta</p>
+            <p class="mb-1 text-[0.75rem] font-semibold uppercase tracking-wider text-oroOscuro">Consulta</p>
             <p class="text-sm text-azulCorp leading-relaxed">{{ msg.text }}</p>
-            <div v-if="msg.fileName" class="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-oro/30 bg-white/70 px-2 py-1 text-[11px] font-medium text-oroOscuro">
+            <div v-if="msg.fileName" class="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-oro/30 bg-white/70 px-2 py-1 text-[0.75rem] font-medium text-oroOscuro">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 shrink-0">
                 <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
@@ -250,7 +250,7 @@ async function send() {
             <span class="text-sm font-bold text-violetaIA">Alerta de Rebote</span>
             <span
               v-if="msg.failedVar"
-              class="rounded bg-violetaIA/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-violetaIA"
+              class="rounded bg-violetaIA/20 px-1.5 py-0.5 text-[0.75rem] font-semibold uppercase text-violetaIA"
             >
               {{ msg.failedVar }}
             </span>
@@ -264,7 +264,7 @@ async function send() {
       </div>
 
       <!-- Processing indicator -->
-      <div v-if="isProcessing" class="mx-auto w-full max-w-4xl">
+      <div v-if="isProcessing" class="mx-auto w-full max-w-4xl xl:max-w-5xl">
         <div class="inline-flex items-center gap-2 rounded-2xl rounded-tl-none border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
           <div class="flex gap-1">
             <span class="h-2 w-2 animate-bounce rounded-full bg-oro [animation-delay:-0.3s]"></span>
@@ -278,7 +278,7 @@ async function send() {
 
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
-      <div class="mx-auto w-full max-w-4xl">
+      <div class="mx-auto w-full max-w-4xl xl:max-w-5xl">
         <!-- Cuestionario del cliente: SIEMPRE visible en el chat, fijo sobre el
         campo de texto; al completarlo queda deshabilitado. -->
         <SurveyBanner class="mb-3" />

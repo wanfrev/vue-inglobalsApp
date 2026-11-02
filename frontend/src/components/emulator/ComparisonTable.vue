@@ -29,7 +29,7 @@ const criterios = [
     </h4>
 
     <div class="mt-3">
-      <table class="w-full table-fixed border-collapse text-[9.5px] text-slate-800 sm:text-xs">
+      <table class="w-full table-fixed border-collapse text-[0.6875rem] text-slate-800 sm:text-xs">
         <caption class="sr-only">Comparativa operacional del Simulador Sostenible + IA frente a ChatGPT, Claude, Gemini y DeepSeek</caption>
         <thead>
           <tr class="align-bottom">
@@ -63,7 +63,7 @@ const criterios = [
       </table>
     </div>
 
-    <div class="mt-4 space-y-3 text-justify text-[11px] leading-relaxed text-slate-700 sm:text-xs">
+    <div class="mt-4 space-y-3 text-justify text-[0.75rem] leading-relaxed text-slate-700 sm:text-xs">
       <div>
         <strong class="text-azulCorp">Nota técnica:</strong> El protocolo (<strong>AOPCCPS+IA</strong>) del Simulador Sostenible + IA, opera con una arquitectura de especialista, priorizando la precisión técnica, la gobernanza digital y la falsabilidad legal sobre la eficiencia lingüística.
       </div>

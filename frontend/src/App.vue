@@ -58,7 +58,7 @@ onMounted(async () => {
         <EmulatorView v-if="currentView === 'emulator'" />
         <HistoryView v-else-if="currentView === 'history'" />
       </main>
-      <p class="shrink-0 pb-2 text-center text-[10px] text-slate-400">
+      <p class="shrink-0 pb-2 text-center text-[0.6875rem] text-slate-400">
         © {{ new Date().getFullYear() }} Inglobals. Todos los derechos reservados.
       </p>
     </template>

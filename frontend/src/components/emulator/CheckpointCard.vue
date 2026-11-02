@@ -75,15 +75,15 @@ function choose(mode) {
 <template>
   <div class="space-y-3">
     <div v-if="draft.refined_question" class="rounded-2xl border border-azulCorp/15 bg-azulCorp/5 px-4 py-3 text-xs text-azulCorp">
-      <span class="text-[10px] font-bold uppercase tracking-wide text-azulCorp/70">Pregunta interpretada por la IA</span>
+      <span class="text-[0.6875rem] font-bold uppercase tracking-wide text-azulCorp/70">Pregunta interpretada por la IA</span>
       <div class="mt-1 break-words leading-relaxed">{{ draft.refined_question }}</div>
     </div>
 
     <!-- Primera casilla: lo que dice la bibliografía -->
     <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.05)] sm:p-5">
       <div class="mb-2 flex flex-wrap items-center gap-2">
-        <span class="text-[11px] font-semibold uppercase tracking-wider text-oroOscuro">Primer análisis · bibliografía</span>
-        <span v-if="draft.framework" class="max-w-full break-words rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+        <span class="text-[0.75rem] font-semibold uppercase tracking-wider text-oroOscuro">Primer análisis · bibliografía</span>
+        <span v-if="draft.framework" class="max-w-full break-words rounded-full bg-slate-100 px-2 py-0.5 text-[0.6875rem] font-semibold text-slate-600">
           Marco: {{ draft.framework }}
         </span>
       </div>
@@ -99,7 +99,7 @@ function choose(mode) {
       </div>
 
       <div v-if="missing.length" class="mt-3 rounded-xl border border-oro/30 bg-oro/5 px-3 py-2 text-xs text-oroOscuro">
-        <div class="text-[10px] font-bold uppercase tracking-wide">Lo que falta en la bibliografía</div>
+        <div class="text-[0.6875rem] font-bold uppercase tracking-wide">Lo que falta en la bibliografía</div>
         <ul class="mt-1 list-disc space-y-0.5 pl-4">
           <li v-for="(m, i) in missing" :key="i" class="break-words">{{ m }}</li>
         </ul>
@@ -136,7 +136,7 @@ function choose(mode) {
           <span>
             <span class="block text-sm font-bold text-azulCorp">
               {{ busy === 'complementar' ? 'Buscando información externa...' : `Completar con búsqueda externa (${EXTERNAL_ENGINE_LABEL})` }}
-              <span v-if="lacksInfo" class="ml-1 rounded-full bg-oro/20 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase text-oroOscuro">Recomendado: faltan datos</span>
+              <span v-if="lacksInfo" class="ml-1 rounded-full bg-oro/20 px-1.5 py-0.5 align-middle text-[0.6875rem] font-bold uppercase text-oroOscuro">Recomendado: faltan datos</span>
             </span>
             <span class="block text-xs text-slate-500">
               Cubre lo que falta en la bibliografía. Esa parte se marcará como <strong>no verificada</strong>.
@@ -188,7 +188,7 @@ function choose(mode) {
               :href="documentDownloadUrl(law.doc_id)"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-oro/40 bg-oro/5 px-2.5 py-1.5 text-[11px] font-semibold text-oroOscuro transition-colors hover:bg-oro/15"
+              class="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-oro/40 bg-oro/5 px-2.5 py-1.5 text-[0.75rem] font-semibold text-oroOscuro transition-colors hover:bg-oro/15"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5 shrink-0">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" />

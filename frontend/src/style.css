@@ -23,6 +23,31 @@
   --color-amber-500: #f59e0b;
 }
 
+/* Tamaño base según la pantalla: Tailwind usa rem, así que al subir esta cifra
+   crecen a la vez textos, botones, iconos y espacios del simulador. En celular
+   se queda en 16 px (sin cambios); en laptop y monitores grandes sube. */
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1280px) and (min-height: 760px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1700px) and (min-height: 940px) {
+  html {
+    font-size: 20px;
+  }
+}
+
 body {
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
   margin: 0;

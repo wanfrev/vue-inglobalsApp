@@ -29,7 +29,7 @@ async function downloadCertificate() {
   <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm sm:p-6">
     <div class="mb-5 flex items-start justify-between gap-4">
       <div>
-        <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-oroOscuro">Detalle del expediente</p>
+        <p class="text-[0.6875rem] font-bold uppercase tracking-[0.18em] text-oroOscuro">Detalle del expediente</p>
         <h3 class="mt-1 text-base font-bold text-azulCorp">Expediente #{{ entry?.id }}</h3>
       </div>
       <button @click="$emit('close')" aria-label="Cerrar detalle" class="flex h-8 w-8 items-center justify-center rounded-lg text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">×</button>

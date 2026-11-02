@@ -33,7 +33,7 @@ import { noteSurveyOpened, surveyCompleted } from '../../stores/appStore.js'
     role="region"
     aria-label="Cuestionario"
   >
-    <div class="relative flex items-center gap-3 overflow-hidden rounded-[calc(1rem-2px)] bg-azulCorp px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-3.5">
+    <div class="relative flex items-center gap-3 overflow-hidden rounded-[calc(1rem-2px)] bg-azulCorp px-3 py-2.5 sm:gap-4 sm:px-5 sm:py-2.5">
       <div class="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-oro/25 blur-3xl"></div>
 
       <div class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#996515] via-[#D4AF37] to-[#F9D71C] text-azulCorp shadow-lg sm:h-12 sm:w-12">
@@ -45,9 +45,8 @@ import { noteSurveyOpened, surveyCompleted } from '../../stores/appStore.js'
       </div>
 
       <div class="relative min-w-0 flex-1">
-        <div class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-oro sm:text-[10px]">Tu opinión cuenta</div>
+        <div class="text-[0.6875rem] font-extrabold uppercase tracking-[0.2em] text-oro sm:text-[0.6875rem]">Tu opinión cuenta</div>
         <div class="text-sm font-extrabold leading-tight text-white sm:text-base">¿Nos ayudas a mejorar el simulador?</div>
-        <div class="mt-0.5 hidden text-xs text-slate-300 sm:block">Responde este breve cuestionario; tarda menos de un minuto.</div>
       </div>
 
       <a
