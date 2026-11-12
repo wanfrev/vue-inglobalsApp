@@ -6,7 +6,6 @@ import CheckpointCard from './CheckpointCard.vue'
 import ComparisonTable from './ComparisonTable.vue'
 import SustainabilityPanel from './SustainabilityPanel.vue'
 import { promptText, setSession, simulationStatus, updateSessionStatus } from '../../stores/appStore.js'
-import SurveyBanner from './SurveyBanner.vue'
 
 const messages = ref([])
 
@@ -279,9 +278,6 @@ async function send() {
     <!-- Compose area -->
     <div class="border-t border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur-md sm:px-8 sm:py-4">
       <div class="mx-auto w-full max-w-4xl xl:max-w-5xl">
-        <!-- Cuestionario del cliente: SIEMPRE visible en el chat, fijo sobre el
-        campo de texto; al completarlo queda deshabilitado. -->
-        <SurveyBanner class="mb-3" />
         <p v-if="attachmentError" class="mb-2 text-xs font-medium text-violetaIA">{{ attachmentError }}</p>
 
         <!-- Chip del archivo adjunto, antes de enviar -->
