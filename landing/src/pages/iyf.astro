@@ -193,7 +193,7 @@ import iaasLogo from "../assets/iaas-logo.png";
         </summary>
         <div class="border-t border-amber-200/60 px-6 pb-8 pt-6">
           <section
-            class="py-28 md:py-36 bg-blue-950 relative overflow-visible rounded-2xl"
+            class="py-10 md:py-14 bg-blue-950 relative overflow-visible rounded-2xl"
           >
             <div
               class="absolute top-0 right-0 w-80 h-80 bg-[#D4AF37]/6 blur-[120px] -z-0"
@@ -201,7 +201,7 @@ import iaasLogo from "../assets/iaas-logo.png";
             </div>
 
             <div class="max-w-7xl mx-auto px-6 relative z-10">
-              <div class="grid gap-10 md:grid-cols-2 items-center">
+              <div class="grid gap-8">
                 <div class="text-left">
                   <p
                     class="text-xs md:text-sm font-bold tracking-widest text-amber-200 uppercase"
@@ -286,11 +286,12 @@ import iaasLogo from "../assets/iaas-logo.png";
                   <div
                     class="relative rounded-[2rem] overflow-hidden bg-black shadow-2xl"
                   >
-                    <div class="w-full h-[240px] md:h-[360px] lg:h-[420px]">
+                    <div class="w-full aspect-video bg-black">
                       <video
                         controls
+                        playsinline
                         preload="metadata"
-                        class="w-full h-full object-cover"
+                        class="w-full h-full object-contain"
                         poster={image1.src}
                       >
                         <source src={diplomado} type="video/mp4" />
@@ -303,7 +304,7 @@ import iaasLogo from "../assets/iaas-logo.png";
                 </div>
               </div>
 
-              <div class="col-span-2 mt-8">
+              <div class="mt-8 space-y-8">
                 <div class="relative">
                   <div
                     id="diplomaGallery"
@@ -392,7 +393,7 @@ import iaasLogo from "../assets/iaas-logo.png";
                         <input
                           type="text"
                           name="nombre"
-                          placeholder="Ej. Andres Martinez"
+                          placeholder="Ej. María Rodríguez"
                           minlength="3"
                           required
                           class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
@@ -426,6 +427,69 @@ import iaasLogo from "../assets/iaas-logo.png";
                           required
                           class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
                         />
+                      </div>
+                      <div>
+                        <label
+                          class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2"
+                          >Modalidad y Horario a Cursar</label
+                        >
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <label
+                            class="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white cursor-pointer hover:border-[#D4AF37]/60 has-[:checked]:border-[#D4AF37] has-[:checked]:bg-[#D4AF37]/15 transition-all"
+                          >
+                            <input
+                              type="radio"
+                              name="modalidad_horario"
+                              value="Virtual"
+                              required
+                              class="accent-[#D4AF37] w-4 h-4 shrink-0"
+                            />
+                            <span>Virtual</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white cursor-pointer hover:border-[#D4AF37]/60 has-[:checked]:border-[#D4AF37] has-[:checked]:bg-[#D4AF37]/15 transition-all"
+                          >
+                            <input
+                              type="radio"
+                              name="modalidad_horario"
+                              value="Presencial (Sabatino)"
+                              class="accent-[#D4AF37] w-4 h-4 shrink-0"
+                            />
+                            <span>Presencial (Sabatino)</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white cursor-pointer hover:border-[#D4AF37]/60 has-[:checked]:border-[#D4AF37] has-[:checked]:bg-[#D4AF37]/15 transition-all"
+                          >
+                            <input
+                              type="radio"
+                              name="modalidad_horario"
+                              value="Presencial (Jueves & Viernes)"
+                              class="accent-[#D4AF37] w-4 h-4 shrink-0"
+                            />
+                            <span>Presencial (Jueves &amp; Viernes)</span>
+                          </label>
+                          <label
+                            class="flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white cursor-pointer hover:border-[#D4AF37]/60 has-[:checked]:border-[#D4AF37] has-[:checked]:bg-[#D4AF37]/15 transition-all"
+                          >
+                            <input
+                              type="radio"
+                              name="modalidad_horario"
+                              value="Otro"
+                              class="accent-[#D4AF37] w-4 h-4 shrink-0"
+                            />
+                            <span>Otro</span>
+                          </label>
+                        </div>
+                        <div id="iyfOtroHorarioWrap" class="hidden mt-3">
+                          <input
+                            type="text"
+                            id="iyfOtroHorarioInput"
+                            name="otro_horario"
+                            disabled
+                            placeholder="Especifique libremente su modalidad y horario..."
+                            class="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-sm text-white placeholder:text-slate-400 focus:border-[#D4AF37] outline-none transition-all"
+                          />
+                        </div>
                       </div>
                       <div>
                         <label
@@ -548,12 +612,57 @@ import iaasLogo from "../assets/iaas-logo.png";
             if (solicitudForm instanceof HTMLFormElement) {
               const nombreInput = solicitudForm.querySelector('input[name="nombre"]');
               const telefonoInput = solicitudForm.querySelector('input[name="telefono"]');
+              const modalidadInputs = solicitudForm.querySelectorAll('input[name="modalidad_horario"]');
+              const otroHorarioWrap = document.getElementById("iyfOtroHorarioWrap");
+              const otroHorarioInput = document.getElementById("iyfOtroHorarioInput");
               const archivoInput = solicitudForm.querySelector('input[name="attachment"]');
               const nextInput = solicitudForm.querySelector('input[name="_next"]');
 
               if (nextInput instanceof HTMLInputElement) {
                 nextInput.value = `${window.location.origin}${window.location.pathname}?enviado=1#contacto-pago`;
               }
+
+              const syncOtroHorario = (focusInput = false) => {
+                const selected = solicitudForm.querySelector('input[name="modalidad_horario"]:checked');
+                const isOtro = selected instanceof HTMLInputElement && selected.value === "Otro";
+                if (otroHorarioWrap) {
+                  otroHorarioWrap.classList.toggle("hidden", !isOtro);
+                }
+                if (otroHorarioInput instanceof HTMLInputElement) {
+                  otroHorarioInput.disabled = !isOtro;
+                  otroHorarioInput.required = isOtro;
+                  if (!isOtro) {
+                    otroHorarioInput.value = "";
+                    otroHorarioInput.setCustomValidity("");
+                  } else if (focusInput) {
+                    otroHorarioInput.focus();
+                  }
+                }
+              };
+
+              const validarOtroHorario = (trimValue = false) => {
+                if (!(otroHorarioInput instanceof HTMLInputElement) || otroHorarioInput.disabled) {
+                  return true;
+                }
+                const value = otroHorarioInput.value.trim();
+                if (trimValue) {
+                  otroHorarioInput.value = value;
+                }
+                if (!value) {
+                  otroHorarioInput.setCustomValidity("Especifique la modalidad y el horario deseado.");
+                  return false;
+                }
+                otroHorarioInput.setCustomValidity("");
+                return true;
+              };
+
+              modalidadInputs.forEach((input) => {
+                input.addEventListener("change", () => syncOtroHorario(true));
+              });
+              otroHorarioInput?.addEventListener("input", () => validarOtroHorario(false));
+              solicitudForm.addEventListener("reset", () => {
+                requestAnimationFrame(() => syncOtroHorario(false));
+              });
 
               const validarNombre = () => {
                 if (!(nombreInput instanceof HTMLInputElement)) return true;
@@ -617,8 +726,9 @@ import iaasLogo from "../assets/iaas-logo.png";
                 event.preventDefault();
                 const nombreOk = validarNombre();
                 const telefonoOk = validarTelefono();
+                const otroHorarioOk = validarOtroHorario(true);
                 const adjuntoOk = validarAdjunto();
-                if (!nombreOk || !telefonoOk || !adjuntoOk || !solicitudForm.checkValidity()) {
+                if (!nombreOk || !telefonoOk || !otroHorarioOk || !adjuntoOk || !solicitudForm.checkValidity()) {
                   solicitudForm.reportValidity();
                   return;
                 }
